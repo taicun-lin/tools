@@ -6,8 +6,7 @@ More tools may be added in the future depending on needs.
 
 ## Available Tools
 
-- [Fee Calculator](https://taicun-lin.github.io/tools/Fee.html)  
-  Simple stock purchase cost and remaining balance calculator.
+- [Fee Calculator](https://taicun-lin.github.io/tools/Fee.html) Simple stock purchase cost and remaining balance calculator.
 
 ---
 
