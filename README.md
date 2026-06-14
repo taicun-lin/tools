@@ -8,7 +8,7 @@ More tools may be added in the future depending on needs.
 
 - [Fee Calculator](https://taicun-lin.github.io/tools/Fee.html) - Simple stock purchase cost and remaining balance calculator.
 - [Image Resizer](https://taicun-lin.github.io/tools/ImgResizer.html) - Resize single or multiple images directly in browser.
-- Resume - Personal resume and technical background. (Work in progress)  
+- [Resume](https://taicun-lin.github.io/tools/resume/en.html) - Personal resume and technical background.  
 
 ---
 
