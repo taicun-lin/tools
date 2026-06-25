@@ -118,6 +118,26 @@
     </table>
   </div>
 
+  <div class="box">
+    <h3>3. 目標價計算</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>現股價 (成本價)</th>
+          <th>漲跌幅 (%)</th>
+          <th>目標價</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input id="target_base_price" type="number" value="0" step="0.01" oninput="calculateByPercent()"></td>
+          <td><input id="target_percent" type="number" value="10" step="0.01" oninput="calculateByPercent()" placeholder="例如：10"></td>
+          <td><input id="target_new_price" type="number" value="0" step="0.01" oninput="calculateByPrice()"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <script>
     function getNumber(id) {
       return parseFloat(document.getElementById(id).value) || 0;
@@ -137,7 +157,7 @@
       document.getElementById('remaining').value = remaining.toFixed(2);
     }
 
-    // 區塊 2 的獨立計算（已移除向上連動的程式碼）
+    // 區塊 2 的獨立計算
     function calculateAverage() {
       const p1 = getNumber('p1');
       const s1 = getNumber('s1');
@@ -158,9 +178,36 @@
       document.getElementById('grand_total').value = grandTotal.toFixed(2);
     }
 
+    // 區塊 3：輸入「漲幅 %」，自動計算「目標新股價」
+    function calculateByPercent() {
+      const basePrice = getNumber('target_base_price');
+      const percent = getNumber('target_percent');
+
+      // 新股價 = 現股價 * (1 + 漲幅%)
+      const newPrice = basePrice * (1 + (percent / 100));
+      
+      // 僅更新新股價欄位，避免覆蓋使用者的輸入值
+      document.getElementById('target_new_price').value = newPrice.toFixed(2);
+    }
+
+    // 區塊 3：輸入「目標新股價」，反向自動計算「漲跌幅 %」
+    function calculateByPrice() {
+      const basePrice = getNumber('target_base_price');
+      const newPrice = getNumber('target_new_price');
+
+      if (basePrice > 0) {
+        // 漲幅% = ((新股價 - 現股價) / 現股價) * 100
+        const percent = ((newPrice - basePrice) / basePrice) * 100;
+        document.getElementById('target_percent').value = percent.toFixed(2);
+      } else {
+        document.getElementById('target_percent').value = 0;
+      }
+    }
+
     // 頁面載入時，各自獨立初始化數據
     calculateFunds();
     calculateAverage();
+    calculateByPercent(); // 初始化第三區塊
   </script>
 </body>
 </html>
