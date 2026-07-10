@@ -148,7 +148,7 @@
     async function initData() {
       try {
         // 抓取同目錄下的 fee.json
-        const response = await fetch('fee.json');
+        const response = await fetch('Fee.json');
         if (!response.ok) throw new Error('無法讀取 JSON 檔案');
         
         const data = await response.json();
