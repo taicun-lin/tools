@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Video to Frames ZIP</title>
+
+  <!-- JSZip：將擷取出的圖片打包成 ZIP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+    body {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+      font-family: Arial, "Microsoft JhengHei", sans-serif;
+      line-height: 1.6;
+    }
+
+    .control-group {
+      margin-top: 16px;
+    }
+
+    label {
+      display: inline-block;
+      min-width: 170px;
+    }
+
+    input[type="number"] {
+      width: 100px;
+      padding: 6px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    video {
+      display: block;
+      max-width: 100%;
+      margin-top: 20px;
+      background: #000;
+    }
+
+    progress {
+      width: 100%;
+      height: 24px;
+      margin-top: 16px;
+    }
+
+    #status {
+      white-space: pre-line;
+      margin-top: 12px;
+    }
+
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>影片轉 Frames 並下載 ZIP</h2>
+
+  <div class="control-group">
+    <input type="file" id="videoInput" accept="video/*" />
+  </div>
+
+  <div class="control-group">
+    <label for="intervalInput">每隔幾秒擷取一張：</label>
+
+    <input
+      type="number"
+      id="intervalInput"
+      value="1"
+      min="0.1"
+      step="0.1"
+    />
+  </div>
+
+  <div class="control-group">
+    <label for="qualityInput">JPG 品質：</label>
+
+    <input
+      type="number"
+      id="qualityInput"
+      value="0.9"
+      min="0.1"
+      max="1"
+      step="0.1"
+    />
+  </div>
+
+  <div class="control-group">
+    <label for="resizeWidthInput">
+      輸出寬度：
+    </label>
+
+    <input
+      type="number"
+      id="resizeWidthInput"
+      value="0"
+      min="0"
+      step="1"
+    />
+
+    <span>0 表示維持原始解析度</span>
+  </div>
+
+  <button id="startButton">
+    開始擷取並下載 ZIP
+  </button>
+
+  <progress
+    id="progressBar"
+    value="0"
+    max="100"
+  ></progress>
+
+  <p id="status">請先選擇影片。</p>
+
+  <video
+    id="video"
+    controls
+    preload="metadata"
+  ></video>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const videoInput = document.getElementById("videoInput");
+    const intervalInput = document.getElementById("intervalInput");
+    const qualityInput = document.getElementById("qualityInput");
+    const resizeWidthInput = document.getElementById(
+      "resizeWidthInput"
+    );
+
+    const startButton = document.getElementById("startButton");
+    const progressBar = document.getElementById("progressBar");
+    const status = document.getElementById("status");
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+
+    let videoUrl = null;
+
+    videoInput.addEventListener("change", () => {
+      const file = videoInput.files[0];
+
+      if (!file) {
+        status.textContent = "請先選擇影片。";
+        return;
+      }
+
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+      }
+
+      videoUrl = URL.createObjectURL(file);
+      video.src = videoUrl;
+
+      progressBar.value = 0;
+      status.textContent = "正在載入影片資訊...";
+    });
+
+    video.addEventListener("loadedmetadata", () => {
+      const file = videoInput.files[0];
+
+      const duration = formatSeconds(video.duration);
+
+      status.textContent =
+        `影片：${file.name}\n` +
+        `長度：${duration}\n` +
+        `解析度：${video.videoWidth} × ${video.videoHeight}`;
+    });
+
+    function waitForSeek(videoElement) {
+      return new Promise((resolve, reject) => {
+        const handleSeeked = () => {
+          cleanup();
+          resolve();
+        };
+
+        const handleError = () => {
+          cleanup();
+          reject(new Error("影片跳轉失敗。"));
+        };
+
+        const cleanup = () => {
+          videoElement.removeEventListener(
+            "seeked",
+            handleSeeked
+          );
+
+          videoElement.removeEventListener(
+            "error",
+            handleError
+          );
+        };
+
+        videoElement.addEventListener(
+          "seeked",
+          handleSeeked,
+          { once: true }
+        );
+
+        videoElement.addEventListener(
+          "error",
+          handleError,
+          { once: true }
+        );
+      });
+    }
+
+    function canvasToBlob(canvasElement, quality) {
+      return new Promise((resolve, reject) => {
+        canvasElement.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(
+                new Error("無法將畫面轉換成 JPG。")
+              );
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = filename;
+
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    }
+
+    function getFileBaseName(filename) {
+      const lastDotIndex = filename.lastIndexOf(".");
+
+      if (lastDotIndex <= 0) {
+        return filename;
+      }
+
+      return filename.substring(0, lastDotIndex);
+    }
+
+    function sanitizeFilename(filename) {
+      return filename.replace(
+        /[\\/:*?"<>|]+/g,
+        "_"
+      );
+    }
+
+    function formatSeconds(seconds) {
+      if (!Number.isFinite(seconds)) {
+        return "未知";
+      }
+
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor(
+        (seconds % 3600) / 60
+      );
+
+      const remainingSeconds = Math.floor(
+        seconds % 60
+      );
+
+      return [
+        hours,
+        minutes,
+        remainingSeconds
+      ]
+        .map((value) => String(value).padStart(2, "0"))
+        .join(":");
+    }
+
+    function calculateOutputSize(
+      originalWidth,
+      originalHeight,
+      requestedWidth
+    ) {
+      if (
+        requestedWidth <= 0 ||
+        requestedWidth >= originalWidth
+      ) {
+        return {
+          width: originalWidth,
+          height: originalHeight
+        };
+      }
+
+      const ratio = requestedWidth / originalWidth;
+
+      return {
+        width: Math.round(originalWidth * ratio),
+        height: Math.round(originalHeight * ratio)
+      };
+    }
+
+    startButton.addEventListener("click", async () => {
+      const file = videoInput.files[0];
+
+      if (!file) {
+        alert("請先選擇影片。");
+        return;
+      }
+
+      if (
+        typeof JSZip === "undefined"
+      ) {
+        alert(
+          "JSZip 載入失敗，請確認電腦目前可以連線到網路。"
+        );
+
+        return;
+      }
+
+      const intervalSeconds = Number(
+        intervalInput.value
+      );
+
+      const quality = Number(
+        qualityInput.value
+      );
+
+      const requestedWidth = Number(
+        resizeWidthInput.value
+      );
+
+      if (
+        !Number.isFinite(intervalSeconds) ||
+        intervalSeconds <= 0
+      ) {
+        alert("擷取間隔必須大於 0 秒。");
+        return;
+      }
+
+      if (
+        !Number.isFinite(quality) ||
+        quality < 0.1 ||
+        quality > 1
+      ) {
+        alert("JPG 品質必須介於 0.1 到 1。");
+        return;
+      }
+
+      if (
+        !Number.isFinite(requestedWidth) ||
+        requestedWidth < 0
+      ) {
+        alert("輸出寬度不可小於 0。");
+        return;
+      }
+
+      if (
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0
+      ) {
+        alert("影片尚未完成載入。");
+        return;
+      }
+
+      startButton.disabled = true;
+      videoInput.disabled = true;
+      intervalInput.disabled = true;
+      qualityInput.disabled = true;
+      resizeWidthInput.disabled = true;
+
+      progressBar.value = 0;
+
+      try {
+        video.pause();
+
+        const outputSize = calculateOutputSize(
+          video.videoWidth,
+          video.videoHeight,
+          requestedWidth
+        );
+
+        canvas.width = outputSize.width;
+        canvas.height = outputSize.height;
+
+        const totalFrames = Math.ceil(
+          video.duration / intervalSeconds
+        );
+
+        const zip = new JSZip();
+        const framesFolder = zip.folder("frames");
+
+        const metadata = {
+          source_video: file.name,
+          duration_seconds: video.duration,
+          interval_seconds: intervalSeconds,
+          jpg_quality: quality,
+          original_resolution:
+            `${video.videoWidth}x${video.videoHeight}`,
+          output_resolution:
+            `${canvas.width}x${canvas.height}`,
+          estimated_frame_count: totalFrames
+        };
+
+        let savedCount = 0;
+
+        for (
+          let currentTime = 0;
+          currentTime < video.duration;
+          currentTime += intervalSeconds
+        ) {
+          const safeTime = Math.min(
+            currentTime,
+            Math.max(video.duration - 0.001, 0)
+          );
+
+          video.currentTime = safeTime;
+          await waitForSeek(video);
+
+          context.drawImage(
+            video,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+          const imageBlob = await canvasToBlob(
+            canvas,
+            quality
+          );
+
+          const frameNumber = String(
+            savedCount
+          ).padStart(6, "0");
+
+          const timestamp = safeTime
+            .toFixed(3)
+            .padStart(10, "0");
+
+          const imageFilename =
+            `frame_${frameNumber}` +
+            `_time_${timestamp}s.jpg`;
+
+          framesFolder.file(
+            imageFilename,
+            imageBlob
+          );
+
+          savedCount += 1;
+
+          const captureProgress =
+            (savedCount / totalFrames) * 80;
+
+          progressBar.value = Math.min(
+            captureProgress,
+            80
+          );
+
+          status.textContent =
+            `正在擷取圖片...\n` +
+            `已完成：${savedCount} / ${totalFrames}\n` +
+            `影片時間：${safeTime.toFixed(2)} 秒\n` +
+            `輸出解析度：${canvas.width} × ${canvas.height}`;
+
+          await new Promise((resolve) => {
+            setTimeout(resolve, 0);
+          });
+        }
+
+        metadata.actual_frame_count = savedCount;
+
+        zip.file(
+          "metadata.json",
+          JSON.stringify(metadata, null, 2)
+        );
+
+        status.textContent =
+          `圖片擷取完成，共 ${savedCount} 張。\n` +
+          `正在建立 ZIP 壓縮檔...`;
+
+        const zipBlob = await zip.generateAsync(
+          {
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: {
+              level: 6
+            }
+          },
+          (zipProgress) => {
+            progressBar.value =
+              80 + zipProgress.percent * 0.2;
+
+            status.textContent =
+              `圖片擷取完成，共 ${savedCount} 張。\n` +
+              `正在建立 ZIP：` +
+              `${zipProgress.percent.toFixed(1)}%`;
+          }
+        );
+
+        const videoBaseName = sanitizeFilename(
+          getFileBaseName(file.name)
+        );
+
+        const zipFilename =
+          `${videoBaseName}_frames.zip`;
+
+        downloadBlob(
+          zipBlob,
+          zipFilename
+        );
+
+        progressBar.value = 100;
+
+        status.textContent =
+          `完成。\n` +
+          `共擷取 ${savedCount} 張 JPG。\n` +
+          `已下載：${zipFilename}`;
+      } catch (error) {
+        console.error(error);
+
+        status.textContent =
+          `處理失敗：${error.message}`;
+      } finally {
+        startButton.disabled = false;
+        videoInput.disabled = false;
+        intervalInput.disabled = false;
+        qualityInput.disabled = false;
+        resizeWidthInput.disabled = false;
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+      }
+    });
+  </script>
+</body>
+</html>
+
