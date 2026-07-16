@@ -11,7 +11,7 @@ More tools may be added in the future depending on needs.
 - [Video Convert](https://taicun-lin.github.io/tools/VideoConvert.html) - Browser-based video preprocessing for AI demos, model testing, and media conversion.
 - [Video to Frame](https://taicun-lin.github.io/tools/Video2Frame.html) - Convert videos into image frames in the browser for AI training datasets and annotation.
 - [Speech Player](https://taicun-lin.github.io/tools/SpeechPlayer.html) - Speech practice with automatic transcript highlighting, text-to-speech, and TXT import.
-- [Speech Player(PWA)](https://taicun-lin.github.io/tools/SpeechStudioPWA/) - Speech practice with automatic transcript highlighting, text-to-speech, and TXT import.
+- [Speech Player(PWA)](https://taicun-lin.github.io/tools/SpeechStudioPWA/) - Mobile-friendly speech practice, transcript highlighting, and text-to-speech.
 - [Resume](https://taicun-lin.github.io/resume/online/en.html) - Personal resume and technical background.  
 
 ---
