@@ -1,0 +1,85 @@
+1. Demo
+Good morning, everyone.
+Today I would like to demo a simple AI safety feature for AMR.
+When the AMR detects a person nearby, it immediately stops.
+Even when it's moving, it immediately stops.
+Even when it's carrying materials, it immediately stops.
+It looks simple, but in a human-robot environment, safety always comes first.
+ 
+
+
+2. Vision 
+However, this project didn't start with human detection.
+It started with a problem that LiDAR couldn't solve.
+LiDAR is very good at measuring distance and detecting obstacles.
+But it doesn't know what the obstacle is.
+For example, it cannot tell the difference between a glass floor and an open maintenance hole.
+That's why we introduced AI Vision on the AMD AI MAX's NPU.
+Now the AMR can understand what an obstacle is, not just detect it.
+
+
+
+3. Value
+Let's take a familiar example.
+Automatic doors in a supermarket don't usually need AI.
+An infrared sensor is enough to detect someone and open the door.
+Of course, an AI camera could do the same thing.
+But if AI is only used to open the door, we are just using a different technology to get the same result.
+AI brings real value by adding new capabilities, not by replacing the infrared sensor.
+With AI, the same system can recognize employees for attendance,
+analyze customer interest based on how long they stay in front of a product,
+or detect restricted areas and issue safety alerts.
+AI is not here to replace sensors. It's here to make systems more valuable.
+
+
+
+4. Decision 
+Once the robot knows what the obstacle is,
+it does not have to do the same thing every time.
+Now it can choose the best action.
+For example:
+If it sees a person, it stops and waits.
+If it sees a static obstacle, it finds another path.
+If it sees a glass floor or an open maintenance hole, it avoids the danger.
+It can even recognize a maintenance engineer and follow that person.
+The goal is no longer just obstacle avoidance.
+It is making the right decision.
+
+
+
+5. Reasoning
+When AI can do more than see, it begins to understand what is happening and make better decisions.
+AMD AI Max+ 395, with up to 128GB of unified memory, allows large language models to run directly on the edge.
+Now the robot doesn't just know what it sees.
+It understands what is happening and decides what to do next.
+Previously, AI followed predefined rules for different situations.
+Today, we simply tell the AI our goal.
+For example:"Go to Warehouse 2 and bring me the part."
+From there, the AI chooses the best way based on the current situation.
+If it sees someone, it waits until the person passes.
+If people are doing maintenance, it stays away.
+If equipment is blocking the path, it finds another way.
+We don't need to tell it every step. We only need to tell it the goal.
+This is no longer just object detection. It's understanding the situation and completing the task we've given it. 
+
+
+
+6. Agent
+In fact, AI agents are already becoming part of our daily lives.
+When you leave Moscone Center later today, you'll probably see a Waymo self-driving car.
+It's like your AI driver. You don't tell it when to turn left or right.
+You simply tell it where you want to go.
+From there, it watches the road, understands traffic signals, avoids people and cars, and gets you there safely.
+This is how an AI agent works. It sees the world, understands it, plans, and completes a task.
+If an AI agent can drive on the busy streets of San Francisco,
+think about what it can do in a controlled semiconductor environment.
+ 
+
+
+7. Ending
+In the past, machines knew something was there.
+Today, they know what it is.
+Tomorrow, they will know what to do next.
+Thank you.
+
+ 
