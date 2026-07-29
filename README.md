@@ -13,7 +13,7 @@ More tools may be added in the future as needed.
 - [Image Resizer](https://taicun-lin.github.io/tools/image/resize.html)
   - Resize one or multiple images directly in your browser.
 
-- [Video Convert](https://taicun-lin.github.io/tools/video/convert.html)
+- [Video Convert](https://taicun-lin.github.io/tools/video/convert/convert.html)
   - Browser-based video conversion, compression, trimming, and preprocessing.
 
 - [Extract Frame](https://taicun-lin.github.io/tools/video/extract-frame.html)
