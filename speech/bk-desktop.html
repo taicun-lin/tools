@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TXT Speech Transcript Player</title>
+<style>
+  :root { --font-size: 38px; --line-gap: 18px; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0c0f14; color:#aeb5c0; font-family:Arial,"Noto Sans TC",sans-serif; overflow:hidden; }
+  .topbar { position:fixed; inset:0 0 auto 0; z-index:10; display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px 16px; background:rgba(13,17,23,.96); border-bottom:1px solid #27303b; }
+  button,.file-btn,select,input[type="range"] { font:inherit; }
+  button,.file-btn { border:1px solid #394453; background:#18202a; color:#eef3f8; border-radius:8px; padding:8px 12px; cursor:pointer; }
+  button:hover,.file-btn:hover { background:#222d39; }
+  .file-btn input { display:none; }
+  select { max-width:250px; background:#121923; color:#eef3f8; border:1px solid #394453; border-radius:7px; padding:7px; }
+  .control { display:flex; align-items:center; gap:6px; font-size:14px; color:#cbd3dc; }
+  .filename { min-width:120px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#8fd3ff; font-size:14px; }
+  .stage { position:absolute; inset:76px 0 34px 0; overflow-y:auto; scroll-behavior:smooth; padding:38vh max(5vw,28px); }
+  .empty { max-width:820px; margin:0 auto; padding:36px; border:2px dashed #3b4654; border-radius:16px; text-align:center; color:#bdc6d1; line-height:1.8; }
+  .paragraph { margin:0 auto 70px; max-width:1050px; padding:8px 0 18px; border-bottom:1px solid rgba(255,255,255,.07); }
+  .heading { margin:75px auto 28px; max-width:1050px; color:#73c8ff; font-size:calc(var(--font-size) * .72); font-weight:700; letter-spacing:.02em; }
+  .line { font-size:var(--font-size); line-height:1.42; margin:var(--line-gap) 0; opacity:.38; transition:opacity .22s,transform .22s,color .22s,text-shadow .22s; cursor:pointer; }
+  .line:hover { opacity:.75; }
+  .line.past { opacity:.24; }
+  .line.next { opacity:.65; }
+  .line.active { color:#fff; opacity:1; transform:scale(1.025); transform-origin:left center; text-shadow:0 0 22px rgba(117,205,255,.28); }
+  .footer { position:fixed; inset:auto 0 0 0; height:34px; background:#121820; border-top:1px solid #27303b; }
+  .progress { height:4px; width:0; background:#78c9ff; transition:width .25s; }
+  .status { display:flex; justify-content:space-between; padding:6px 14px 0; font-size:12px; color:#9aa6b3; }
+  .drop { position:fixed; inset:0; z-index:99; display:none; place-items:center; background:rgba(5,9,14,.9); color:white; font-size:28px; border:4px dashed #78c9ff; }
+  body.dragging .drop { display:grid; }
+  @media(max-width:900px){ .stage{inset:132px 0 34px 0;padding-left:22px;padding-right:22px}.topbar{gap:7px}.line{font-size:min(var(--font-size),8vw)} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <label class="file-btn">📄 上傳 TXT<input id="fileInput" type="file" accept=".txt,text/plain"></label>
+  <button id="playBtn">▶ Play</button>
+  <button id="prevBtn">← 上一句</button>
+  <button id="nextBtn">下一句 →</button>
+  <button id="restartBtn">↺ 重頭</button>
+  <button id="fullscreenBtn">⛶ 全螢幕</button>
+  <span class="control">速度 <input id="speed" type="range" min="0.5" max="1.8" step="0.1" value="1"><span id="speedValue">1.0×</span></span>
+  <span class="control">字體 <input id="fontSize" type="range" min="24" max="64" step="2" value="38"></span>
+  <select id="voice" title="Voice"><option value="">System default</option></select>
+  <span id="filename" class="filename">尚未載入檔案</span>
+</div>
+
+<main id="stage" class="stage">
+  <div class="empty">
+    <strong>上傳 TXT 後即可朗讀</strong><br>
+    「1. Demo」這類單行內容會辨識為大綱標題，不會朗讀。<br>
+    兩個以上換行會建立新段落；段落中的每一行會視為一句。
+  </div>
+</main>
+<div class="footer"><div id="progress" class="progress"></div><div class="status"><span id="count">0 / 0</span><span id="parseStatus">等待 TXT</span></div></div>
+<div class="drop">放開以載入 TXT</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const stage=$('stage'), fileInput=$('fileInput'), playBtn=$('playBtn'), progress=$('progress');
+const countEl=$('count'), parseStatus=$('parseStatus'), voiceEl=$('voice'), speedEl=$('speed');
+let items=[], speakable=[], currentPos=0, playing=false, paused=false, utterance=null, voices=[];
+
+function isHeading(text){
+  return /^\s*(?:#{1,6}\s*)?\d+\s*[\.．\)）、:：-]\s*\S.+$/u.test(text.trim());
+}
+function parseText(text){
+  const normalized=text.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').trim();
+  if(!normalized) return [];
+  const blocks=normalized.split(/\n[\t ]*\n(?:[\t ]*\n)*/); // one or more blank lines = paragraph boundary
+  const result=[];
+  blocks.forEach((block,pIndex)=>{
+    const lines=block.split('\n').map(s=>s.trim()).filter(Boolean);
+    if(!lines.length) return;
+    if(lines.length===1 && isHeading(lines[0])) {
+      result.push({type:'heading',text:lines[0],paragraph:pIndex});
+      return;
+    }
+    // Also recognize a heading placed at the first line of a block.
+    if(isHeading(lines[0])) result.push({type:'heading',text:lines.shift(),paragraph:pIndex});
+    lines.forEach(text=>result.push({type:'speech',text,paragraph:pIndex}));
+  });
+  return result;
+}
+function render(){
+  stage.innerHTML=''; speakable=[];
+  let lastParagraph=null, paragraphEl=null;
+  items.forEach((item,itemIndex)=>{
+    if(item.type==='heading'){
+      const h=document.createElement('div'); h.className='heading'; h.textContent=item.text; stage.appendChild(h); lastParagraph=null; paragraphEl=null; return;
+    }
+    if(item.paragraph!==lastParagraph){
+      paragraphEl=document.createElement('section'); paragraphEl.className='paragraph'; stage.appendChild(paragraphEl); lastParagraph=item.paragraph;
+    }
+    const line=document.createElement('div'); line.className='line'; line.textContent=item.text;
+    const pos=speakable.length; line.dataset.pos=pos; item.itemIndex=itemIndex; item.element=line; speakable.push(item);
+    line.addEventListener('click',()=>{ stopSpeech(); setPosition(pos); });
+    paragraphEl.appendChild(line);
+  });
+  currentPos=0; refresh();
+  const headings=items.filter(x=>x.type==='heading').length;
+  const paragraphs=new Set(items.filter(x=>x.type==='speech').map(x=>x.paragraph)).size;
+  parseStatus.textContent=`${headings} 個大綱・${paragraphs} 個段落・${speakable.length} 句`;
+}
+function refresh(){
+  speakable.forEach((item,i)=>{
+    item.element.classList.toggle('active',i===currentPos);
+    item.element.classList.toggle('past',i<currentPos);
+    item.element.classList.toggle('next',i===currentPos+1);
+  });
+  if(speakable.length){
+    speakable[currentPos]?.element.scrollIntoView({behavior:'smooth',block:'center'});
+    progress.style.width=`${speakable.length>1?currentPos/(speakable.length-1)*100:100}%`;
+    countEl.textContent=`${currentPos+1} / ${speakable.length}`;
+  } else { progress.style.width='0'; countEl.textContent='0 / 0'; }
+}
+function setPosition(pos){ currentPos=Math.max(0,Math.min(speakable.length-1,pos)); refresh(); }
+function loadVoices(){
+  voices=speechSynthesis.getVoices(); const prior=voiceEl.value;
+  voiceEl.innerHTML='<option value="">System default</option>';
+  voices.filter(v=>/^en(?:-|_)/i.test(v.lang)).sort((a,b)=>a.name.localeCompare(b.name)).forEach(v=>{
+    const o=document.createElement('option'); o.value=v.name; o.textContent=`${v.name} (${v.lang})`; voiceEl.appendChild(o);
+  });
+  if([...voiceEl.options].some(o=>o.value===prior)) voiceEl.value=prior;
+}
+if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function speakCurrent(){
+  if(!playing||!speakable.length) return;
+  refresh(); utterance=new SpeechSynthesisUtterance(speakable[currentPos].text); utterance.lang='en-US'; utterance.rate=Number(speedEl.value);
+  const selected=voices.find(v=>v.name===voiceEl.value); if(selected) utterance.voice=selected;
+  utterance.onend=()=>{ if(!playing||paused)return; if(currentPos>=speakable.length-1){finish();return;} currentPos++; speakCurrent(); };
+  utterance.onerror=e=>{ if(['canceled','interrupted'].includes(e.error))return; stopSpeech(); alert('無法播放這個語音，請改用 System default 或其他英文語音。'); };
+  speechSynthesis.speak(utterance);
+}
+function play(){
+  if(!speakable.length){alert('請先上傳 TXT 檔案。');return;}
+  if(!('speechSynthesis' in window)){alert('此瀏覽器不支援內建文字轉語音。');return;}
+  if(paused){paused=false;playing=true;speechSynthesis.resume();playBtn.textContent='❚❚ Pause';return;}
+  if(playing)return; playing=true; paused=false; playBtn.textContent='❚❚ Pause'; speakCurrent();
+}
+function pause(){ if(!playing)return; speechSynthesis.pause(); playing=false; paused=true; playBtn.textContent='▶ Resume'; }
+function stopSpeech(){ if('speechSynthesis' in window)speechSynthesis.cancel(); playing=false;paused=false;utterance=null;playBtn.textContent='▶ Play'; }
+function finish(){stopSpeech();setPosition(speakable.length-1);}
+async function loadFile(file){
+  if(!file)return; stopSpeech();
+  try{
+    const text=await file.text(); items=parseText(text); $('filename').textContent=file.name;
+    if(!items.length){stage.innerHTML='<div class="empty">檔案沒有可讀取的文字。</div>';parseStatus.textContent='空白檔案';return;}
+    render(); stage.scrollTop=0;
+  }catch(err){console.error(err);alert('TXT 讀取失敗。請確認檔案編碼為 UTF-8。');}
+}
+fileInput.addEventListener('change',e=>loadFile(e.target.files[0]));
+playBtn.addEventListener('click',()=>playing?pause():play());
+$('prevBtn').addEventListener('click',()=>{stopSpeech();if(speakable.length)setPosition(currentPos-1)});
+$('nextBtn').addEventListener('click',()=>{stopSpeech();if(speakable.length)setPosition(currentPos+1)});
+$('restartBtn').addEventListener('click',()=>{stopSpeech();if(speakable.length)setPosition(0);stage.scrollTop=0});
+speedEl.addEventListener('input',()=>{$('speedValue').textContent=`${Number(speedEl.value).toFixed(1)}×`;if(playing){stopSpeech();play();}});
+voiceEl.addEventListener('change',()=>{if(playing){stopSpeech();play();}});
+$('fontSize').addEventListener('input',e=>document.documentElement.style.setProperty('--font-size',`${e.target.value}px`));
+$('fullscreenBtn').addEventListener('click',()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen());
+document.addEventListener('keydown',e=>{
+  if(['INPUT','SELECT','BUTTON'].includes(document.activeElement.tagName))return;
+  if(e.code==='Space'){e.preventDefault();playing?pause():play();}
+  if(e.code==='ArrowLeft'){$('prevBtn').click();} if(e.code==='ArrowRight'){$('nextBtn').click();}
+});
+['dragenter','dragover'].forEach(type=>document.addEventListener(type,e=>{e.preventDefault();document.body.classList.add('dragging')}));
+['dragleave','drop'].forEach(type=>document.addEventListener(type,e=>{e.preventDefault();document.body.classList.remove('dragging')}));
+document.addEventListener('drop',e=>{const file=[...e.dataTransfer.files].find(f=>f.type==='text/plain'||f.name.toLowerCase().endsWith('.txt'));if(file)loadFile(file);else alert('請放入 TXT 檔案。')});
+window.addEventListener('beforeunload',stopSpeech);
+</script>
+</body>
+</html>

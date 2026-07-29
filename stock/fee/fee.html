@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Fee</title>
+  <style>
+    body {
+      font-family: Arial, "Microsoft JhengHei", sans-serif;
+      padding: 24px;
+      background: #f5f5f5;
+    }
+
+    .box {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background: #eee;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      font-size: 16px;
+      text-align: right;
+    }
+
+    .readonly {
+      background: #f0f0f0;
+      font-weight: bold;
+    }
+    
+    h3 {
+      margin-top: 0;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="box">
+    <h3>1. 買股資金計算</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>手續費</th>
+          <th>股價</th>
+          <th>股數</th>
+          <th>總成本 (含手續費)</th>
+          <th>現有剩餘資金</th>
+          <th>買完剩餘資金</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <!-- 這裡的預設 value 清空，改由 JavaScript 從 JSON 動態填入 -->
+          <td><input id="fee" type="number" value="" oninput="calculateFunds()"></td>
+          <td><input id="price" type="number" value="0" step="0.01" oninput="calculateFunds()"></td>
+          <td><input id="shares" type="number" value="0" oninput="calculateFunds()"></td>
+          <td><input id="total" class="readonly" type="text" readonly></td>
+          <td><input id="cash" type="number" value="" oninput="calculateFunds()"></td>
+          <td><input id="remaining" class="readonly" type="text" readonly></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h3>2. 兩次攤平計算</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>批次</th>
+          <th>股價</th>
+          <th>股數</th>
+          <th>小計</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>第一次</td>
+          <td><input id="p1" type="number" value="0" step="0.01" oninput="calculateAverage()"></td>
+          <td><input id="s1" type="number" value="0" oninput="calculateAverage()"></td>
+          <td><input id="total1" class="readonly" type="text" readonly></td>
+        </tr>
+        <tr>
+          <td>第二次</td>
+          <td><input id="p2" type="number" value="0" step="0.01" oninput="calculateAverage()"></td>
+          <td><input id="s2" type="number" value="0" oninput="calculateAverage()"></td>
+          <td><input id="total2" class="readonly" type="text" readonly></td>
+        </tr>
+        <tr style="background: #f9f9f9;">
+          <td><strong>合計 / 平均</strong></td>
+          <td><input id="avg_price" class="readonly" type="text" readonly placeholder="平均股價"></td>
+          <td><input id="total_shares" class="readonly" type="text" readonly placeholder="總股數"></td>
+          <td><input id="grand_total" class="readonly" type="text" readonly></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h3>3. 目標價計算</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>現股價 (成本價)</th>
+          <th>漲跌幅 (%)</th>
+          <th>目標價</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input id="target_base_price" type="number" value="0" step="0.01" oninput="calculateByPercent()"></td>
+          <td><input id="target_percent" type="number" value="10" step="0.01" oninput="calculateByPercent()" placeholder="例如：10"></td>
+          <td><input id="target_new_price" type="number" value="0" step="0.01" oninput="calculateByPrice()"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function getNumber(id) {
+      return parseFloat(document.getElementById(id).value) || 0;
+    }
+
+    // 新增：從 fee.json 非同步讀取資料並初始化
+    async function initData() {
+      try {
+        // 抓取同目錄下的 fee.json
+        const response = await fetch('fee.json');
+        if (!response.ok) throw new Error('無法讀取 JSON 檔案');
+        
+        const data = await response.json();
+        
+        // 將資料寫入欄位
+        document.getElementById('fee').value = data.default_fee;
+        document.getElementById('cash').value = data.available_cash;
+        
+        // 確保欄位填入資料後，執行一次計算
+        calculateFunds();
+        
+      } catch (error) {
+        console.error('初始化失敗，使用備用預設值:', error);
+        // 萬一 JSON 讀取失敗的備用防錯機制
+        document.getElementById('fee').value = 20;
+        document.getElementById('cash').value = 5000;
+        calculateFunds();
+      }
+    }
+
+    // 區塊 1 的獨立計算
+    function calculateFunds() {
+      const fee = getNumber('fee');
+      const price = getNumber('price');
+      const shares = getNumber('shares');
+      const cash = getNumber('cash');
+
+      const total = (price * shares) + fee;
+      const remaining = cash - total;
+
+      document.getElementById('total').value = total.toFixed(2);
+      document.getElementById('remaining').value = remaining.toFixed(2);
+    }
+
+    // 區塊 2 的獨立計算
+    function calculateAverage() {
+      const p1 = getNumber('p1');
+      const s1 = getNumber('s1');
+      const p2 = getNumber('p2');
+      const s2 = getNumber('s2');
+
+      const total1 = p1 * s1;
+      const total2 = p2 * s2;
+      const totalShares = s1 + s2;
+      const grandTotal = total1 + total2;
+      
+      const avgPrice = totalShares > 0 ? (grandTotal / totalShares) : 0;
+
+      document.getElementById('total1').value = total1.toFixed(2);
+      document.getElementById('total2').value = total2.toFixed(2);
+      document.getElementById('total_shares').value = totalShares;
+      document.getElementById('avg_price').value = avgPrice.toFixed(2);
+      document.getElementById('grand_total').value = grandTotal.toFixed(2);
+    }
+
+    // 區塊 3：輸入「漲幅 %」，自動計算「目標新股價」
+    function calculateByPercent() {
+      const basePrice = getNumber('target_base_price');
+      const percent = getNumber('target_percent');
+
+      const newPrice = basePrice * (1 + (percent / 100));
+      document.getElementById('target_new_price').value = newPrice.toFixed(2);
+    }
+
+    // 區塊 3：輸入「目標新股價」，反向自動計算「漲跌幅 %」
+    function calculateByPrice() {
+      const basePrice = getNumber('target_base_price');
+      const newPrice = getNumber('target_new_price');
+
+      if (basePrice > 0) {
+        const percent = ((newPrice - basePrice) / basePrice) * 100;
+        document.getElementById('target_percent').value = percent.toFixed(2);
+      } else {
+        document.getElementById('target_percent').value = 0;
+      }
+    }
+
+    // 頁面載入時執行的主程序
+    async function main() {
+      await initData();       // 1. 先讀取 JSON 資料並塞入欄位
+      calculateAverage();     // 2. 初始化第二區塊
+      calculateByPercent();   // 3. 初始化第三區塊
+    }
+
+    main();
+  </script>
+</body>
+</html>

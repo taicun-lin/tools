@@ -1,24 +1,35 @@
 # Personal Tools
 
-A collection of small personal tools and utilities.  
-This repository hosts lightweight browser-based tools using HTML and JavaScript.  
-More tools may be added in the future depending on needs.
+A collection of small personal tools and utilities.
+
+This repository hosts lightweight browser-based tools built with HTML and JavaScript.
+More tools may be added in the future as needed.
 
 ## Available Tools
 
-- [Fee Calculator](https://taicun-lin.github.io/tools/Fee.html) - Simple stock purchase cost and remaining balance calculator.
-- [Image Resizer](https://taicun-lin.github.io/tools/ImgResizer.html) - Resize single or multiple images directly in browser.
-- [Video Convert](https://taicun-lin.github.io/tools/VideoConvert.html) - Browser-based video preprocessing for AI demos, model testing, and media conversion.
-- [Video to Frame](https://taicun-lin.github.io/tools/Video2Frame.html) - Convert videos into image frames in the browser for AI training datasets and annotation.
-- [Speech Player](https://taicun-lin.github.io/tools/SpeechPlayer.html) - Single-file speech practice with transcript highlighting, text-to-speech, and TXT import.
-- [Speech Player(PWA)](https://taicun-lin.github.io/tools/SpeechStudioPWA/) - Mobile-friendly speech practice, transcript highlighting, and text-to-speech.
-- [Resume](https://taicun-lin.github.io/resume/online/en.html) - Personal resume and technical background.  
+- [Stock Fee Calculator](https://taicun-lin.github.io/tools/stock/fee/fee.html)
+  - Calculate stock purchase costs, transaction fees, and remaining balance.
+
+- [Image Resizer](https://taicun-lin.github.io/tools/image/resize.html)
+  - Resize one or multiple images directly in your browser.
+
+- [Video Convert](https://taicun-lin.github.io/tools/video/convert.html)
+  - Browser-based video conversion, compression, trimming, and preprocessing.
+
+- [Extract Frame](https://taicun-lin.github.io/tools/video/extract-frame.html)
+  - Extract one or multiple image frames from a video.
+
+- [Speech Player](https://taicun-lin.github.io/tools/speech/speech.html)
+  - Speech practice with transcript highlighting, text-to-speech, and TXT import.
+
+- [Resume](https://taicun-lin.github.io/tools/resume.html)
+  - Personal resume and technical portfolio.
 
 ---
 
-## Notes
+## Features
 
 - Pure HTML + JavaScript
 - No installation required
-- Runs directly in browser
+- Runs entirely in the browser
 - Hosted with GitHub Pages
