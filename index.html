@@ -1,50 +1,266 @@
-<h1>Personal Tools</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<p>
-  A collection of lightweight browser-based tools built with HTML and JavaScript.
-  More tools will be added over time.
-</p>
+<title>Personal Tools</title>
 
-<h2>Available Tools</h2>
+<style>
+*{
+    box-sizing:border-box;
+}
 
-<ul>
-  <li>
-    <a href="stock/fee/fee.html">Stock Fee Calculator</a>
-    - Calculate stock purchase costs, transaction fees, and remaining balance.
-  </li>
+body{
+    margin:0;
+    padding:40px 20px;
 
-  <li>
-    <a href="image/resize.html">Image Resizer</a>
-    - Resize one or multiple images directly in your browser.
-  </li>
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
 
-  <li>
-    <a href="video/convert/convert.html">Video Convert</a>
-    - Browser-based video conversion, compression, trimming, and preprocessing.
-  </li>
+    background:#f5f6f8;
+    color:#333;
 
-  <li>
-    <a href="video/extract-frame.html">Extract Frame</a>
-    - Extract one or multiple image frames from a video.
-  </li>
+    display:flex;
+    justify-content:center;
+    align-items:center;
 
-  <li>
-    <a href="speech/speech.html">Speech Player</a>
-    - Speech practice with transcript highlighting, text-to-speech, and TXT import.
-  </li>
+    min-height:100vh;
+}
 
-  <li>
-    <a href="resume.html">Resume</a>
-    - Personal resume and technical portfolio.
-  </li>
-</ul>
+.container{
 
-<div class="note-box">
-  <h3>Features</h3>
-  <ul>
-    <li>Pure HTML + JavaScript</li>
-    <li>No installation required</li>
-    <li>Runs entirely in the browser</li>
-    <li>Hosted with GitHub Pages</li>
-  </ul>
+    width:min(760px,100%);
+
+    background:#fff;
+
+    border-radius:16px;
+
+    box-shadow:
+        0 8px 30px rgba(0,0,0,.08);
+
+    padding:40px;
+}
+
+h1{
+    margin:0;
+    font-size:2rem;
+}
+
+.subtitle{
+    margin:12px 0 36px;
+    color:#666;
+    line-height:1.6;
+}
+
+.tool-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+}
+
+.tool-list li{
+    border-top:1px solid #eee;
+}
+
+.tool-list li:last-child{
+    border-bottom:1px solid #eee;
+}
+
+.tool-list a{
+
+    display:block;
+
+    padding:18px 0;
+
+    color:inherit;
+
+    text-decoration:none;
+
+    transition:.2s;
+}
+
+.tool-list a:hover{
+    padding-left:12px;
+}
+
+.tool-list strong{
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    font-size:17px;
+}
+
+.tool-list strong::after{
+
+    content:"→";
+
+    color:#999;
+
+    transition:.2s;
+}
+
+.tool-list a:hover strong::after{
+
+    color:#2563eb;
+
+    transform:translateX(4px);
+}
+
+.tool-list span{
+
+    display:block;
+
+    margin-top:6px;
+
+    color:#666;
+
+    font-size:14px;
+
+    line-height:1.5;
+}
+
+.note-box{
+
+    margin-top:36px;
+
+    padding:18px 22px;
+
+    border-radius:10px;
+
+    background:#f8f9fb;
+
+    border:1px solid #ececec;
+}
+
+.note-box h2{
+
+    margin-top:0;
+    margin-bottom:12px;
+    font-size:18px;
+}
+
+.note-box ul{
+
+    margin:0;
+    padding-left:20px;
+
+    color:#666;
+}
+
+footer{
+
+    margin-top:30px;
+
+    text-align:center;
+
+    font-size:13px;
+
+    color:#999;
+}
+
+@media(max-width:600px){
+
+    .container{
+        padding:28px;
+    }
+
+    h1{
+        font-size:1.7rem;
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🛠 Personal Tools</h1>
+
+    <p class="subtitle">
+        A collection of lightweight browser-based utilities built with HTML and JavaScript.
+        All tools run entirely in your browser.
+    </p>
+
+    <ul class="tool-list">
+
+        <li>
+            <a href="stock/fee/fee.html">
+                <strong>💰 Stock Fee Calculator</strong>
+                <span>
+                    Calculate stock purchase costs, transaction fees, and remaining balance.
+                </span>
+            </a>
+        </li>
+
+        <li>
+            <a href="image/resize.html">
+                <strong>🖼 Image Resizer</strong>
+                <span>
+                    Resize one or multiple images directly in your browser.
+                </span>
+            </a>
+        </li>
+
+        <li>
+            <a href="video/convert/convert.html">
+                <strong>🎬 Video Convert</strong>
+                <span>
+                    Browser-based video conversion, compression, trimming, and preprocessing.
+                </span>
+            </a>
+        </li>
+
+        <li>
+            <a href="video/extract-frame.html">
+                <strong>📸 Extract Frame</strong>
+                <span>
+                    Extract one or multiple image frames from a video.
+                </span>
+            </a>
+        </li>
+
+        <li>
+            <a href="speech/speech.html">
+                <strong>🎤 Speech Player</strong>
+                <span>
+                    Speech practice with transcript highlighting, text-to-speech, and TXT import.
+                </span>
+            </a>
+        </li>
+
+        <li>
+            <a href="resume.html">
+                <strong>👤 Resume</strong>
+                <span>
+                    Personal resume and technical portfolio.
+                </span>
+            </a>
+        </li>
+
+    </ul>
+
+    <div class="note-box">
+
+        <h2>Features</h2>
+
+        <ul>
+            <li>Pure HTML + JavaScript</li>
+            <li>No installation required</li>
+            <li>Runs entirely in the browser</li>
+            <li>Hosted with GitHub Pages</li>
+        </ul>
+
+    </div>
+
+    <footer>
+        Built with HTML & JavaScript
+    </footer>
+
 </div>
+
+</body>
+</html>
