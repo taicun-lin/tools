@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>演講練習工具</title>
+  <style>
+    :root { --bg:#f4f6f8; --panel:#fff; --text:#1f2937; --muted:#6b7280; --line:#d8dee7; --primary:#2563eb; --danger:#c2410c; --success:#15803d; --shadow:0 12px 32px rgba(15,23,42,.10); }
+    * { box-sizing:border-box; }
+    html,body { margin:0; min-height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif; }
+    body { min-height:100vh; min-height:100dvh; padding:16px; overflow:hidden; }
+    button,input,textarea { font:inherit; } button { cursor:pointer; }
+    .app { width:min(1600px,100%); height:calc(100vh - 32px); height:calc(100dvh - 32px); margin:auto; background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; }
+    .topbar { padding:14px 18px; border-bottom:1px solid var(--line); flex:0 0 auto; }
+    .topbar h1 { margin:0; font-size:clamp(20px,2vw,27px); }
+    .topbar p { margin:4px 0 0; color:var(--muted); font-size:13px; }
+    .workspace { flex:1 1 auto; min-height:0; padding:16px; display:grid; grid-template-columns:minmax(300px,.85fr) minmax(340px,1fr) minmax(360px,1.15fr); gap:14px; }
+    .column { min-width:0; min-height:0; display:flex; flex-direction:column; gap:14px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:15px; padding:15px; min-height:0; }
+    .card h2 { margin:0 0 12px; font-size:16px; }
+    .control-card { flex:0 0 auto; }
+    .live-card,.records-card,.script-card { flex:1 1 auto; display:flex; flex-direction:column; overflow:hidden; }
+    .timer { font-variant-numeric:tabular-nums; font-size:clamp(44px,5vw,72px); line-height:1; font-weight:800; letter-spacing:-.04em; text-align:center; margin:18px 0 10px; }
+    .status { min-height:22px; text-align:center; color:var(--muted); font-weight:600; font-size:14px; }
+    .status.listening { color:var(--success); } .status.error { color:var(--danger); }
+    .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:14px; }
+    .btn,.file-label { min-height:42px; border:1px solid var(--line); border-radius:11px; background:#fff; color:var(--text); font-weight:700; padding:9px 11px; display:inline-flex; align-items:center; justify-content:center; }
+    .btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .btn.danger { color:var(--danger); border-color:#fed7aa; background:#fff7ed; }
+    .btn:disabled { cursor:not-allowed; opacity:.5; }
+    .live-text { flex:1 1 auto; min-height:130px; overflow:auto; padding:14px; border-radius:13px; border:1px dashed #b9c4d4; background:#f8fafc; font-size:clamp(19px,2vw,27px); line-height:1.55; overflow-wrap:anywhere; }
+    .live-text .interim { color:#94a3b8; }
+    .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; flex:0 0 auto; }
+    .stat { padding:9px 5px; border-radius:11px; background:#f8fafc; text-align:center; }
+    .stat strong { display:block; font-size:20px; font-variant-numeric:tabular-nums; } .stat span { color:var(--muted); font-size:11px; }
+    .records { flex:1 1 auto; min-height:0; overflow:auto; padding-right:5px; }
+    .record-empty { color:var(--muted); text-align:center; padding:40px 10px; }
+    .record-item { padding:12px 0; border-bottom:1px solid #edf1f5; }
+    .record-meta { color:var(--muted); font-size:12px; margin-bottom:5px; font-variant-numeric:tabular-nums; }
+    .record-text { line-height:1.5; overflow-wrap:anywhere; }
+    .record-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:12px; flex:0 0 auto; }
+    .script-toolbar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; flex:0 0 auto; }
+    .file-label input { display:none; }
+    .size-control { display:flex; align-items:center; gap:5px; margin-left:auto; }
+    .size-control button { width:38px; height:38px; border:1px solid var(--line); border-radius:9px; background:#fff; font-weight:800; }
+    .script-editor { width:100%; height:90px; min-height:70px; resize:vertical; border:1px solid var(--line); border-radius:12px; padding:11px; line-height:1.5; color:var(--text); flex:0 0 auto; }
+    .script-view { flex:1 1 auto; min-height:0; margin-top:10px; padding:18px; border-radius:13px; border:1px solid var(--line); background:#fcfcfd; white-space:pre-wrap; overflow-wrap:anywhere; overflow-y:auto; line-height:1.7; font-size:28px; }
+    .script-placeholder { color:var(--muted); }
+    .notice { color:var(--muted); font-size:12px; line-height:1.5; margin-top:8px; flex:0 0 auto; }
+    @media (max-width:1050px) {
+      body { overflow:auto; padding:10px; }
+      .app { height:auto; min-height:calc(100vh - 20px); overflow:visible; }
+      .workspace { grid-template-columns:1fr 1fr; }
+      .script-column { grid-column:1 / -1; min-height:620px; }
+      .records-card { min-height:620px; }
+    }
+    @media (max-width:700px) {
+      body { padding:0; }
+      .app { min-height:100vh; min-height:100dvh; border-radius:0; border-left:0; border-right:0; }
+      .topbar { padding:14px; }
+      .workspace { padding:12px; grid-template-columns:1fr; }
+      .script-column { grid-column:auto; min-height:620px; }
+      .records-card { min-height:520px; }
+      .live-card { min-height:420px; }
+      .size-control { margin-left:0; width:100%; justify-content:space-between; }
+      .script-toolbar > .btn,.script-toolbar > .file-label { flex:1 1 calc(50% - 8px); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1>演講練習工具</h1>
+      <p>左側練習與即時辨識、中間逐段紀錄、右側講稿對照</p>
+    </header>
+
+    <section class="workspace">
+      <div class="column">
+        <div class="card control-card">
+          <h2>計時與語音辨識</h2>
+          <div id="timer" class="timer">00:00</div>
+          <div id="status" class="status">尚未開始</div>
+          <div class="controls">
+            <button id="startBtn" class="btn primary">開始</button>
+            <button id="pauseBtn" class="btn" disabled>暫停</button>
+            <button id="stopBtn" class="btn" disabled>停止</button>
+            <button id="resetBtn" class="btn danger">重設</button>
+          </div>
+        </div>
+
+        <div class="card live-card">
+          <h2>即時辨識</h2>
+          <div id="liveText" class="live-text"><span class="interim">按下開始後，辨識內容會顯示在這裡。</span></div>
+          <div class="stats">
+            <div class="stat"><strong id="segmentCount">0</strong><span>辨識段數</span></div>
+            <div class="stat"><strong id="wordCount">0</strong><span>英文單字數</span></div>
+            <div class="stat"><strong id="wpm">0</strong><span>每分鐘單字</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column">
+        <div class="card records-card">
+          <h2>逐段時間紀錄</h2>
+          <div id="records" class="records"><div class="record-empty">完成的辨識內容會依序顯示在這裡。</div></div>
+          <div class="record-actions">
+            <button id="exportBtn" class="btn">匯出 TXT</button>
+            <button id="clearRecordsBtn" class="btn danger">清除紀錄</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="column script-column">
+        <div class="card script-card">
+          <h2>講稿內容（可留空）</h2>
+          <div class="script-toolbar">
+            <label class="file-label">上傳 TXT<input id="scriptFile" type="file" accept=".txt,text/plain" /></label>
+            <button id="applyScriptBtn" class="btn primary">顯示講稿</button>
+            <button id="clearScriptBtn" class="btn danger">清除</button>
+            <button id="fullscreenBtn" class="btn">全螢幕</button>
+            <div class="size-control">
+              <span>字體</span><button id="fontMinus" aria-label="縮小字體">−</button><strong id="fontSizeLabel">28px</strong><button id="fontPlus" aria-label="放大字體">＋</button>
+            </div>
+          </div>
+          <textarea id="scriptEditor" class="script-editor" placeholder="可直接貼上講稿，或上傳 TXT 檔案。"></textarea>
+          <div id="scriptView" class="script-view script-placeholder">尚未載入講稿。語音辨識與計時仍可正常使用。</div>
+          <div class="notice">講稿區與逐段紀錄都有獨立捲軸，不會因文字過長而拉長桌機頁面。</div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    (() => {
+      "use strict";
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      const timerEl = document.getElementById("timer");
+      const statusEl = document.getElementById("status");
+      const liveTextEl = document.getElementById("liveText");
+      const recordsEl = document.getElementById("records");
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const clearRecordsBtn = document.getElementById("clearRecordsBtn");
+      const segmentCountEl = document.getElementById("segmentCount");
+      const wordCountEl = document.getElementById("wordCount");
+      const wpmEl = document.getElementById("wpm");
+
+      const scriptFile = document.getElementById("scriptFile");
+      const scriptEditor = document.getElementById("scriptEditor");
+      const scriptView = document.getElementById("scriptView");
+      const applyScriptBtn = document.getElementById("applyScriptBtn");
+      const clearScriptBtn = document.getElementById("clearScriptBtn");
+      const fullscreenBtn = document.getElementById("fullscreenBtn");
+      const fontMinus = document.getElementById("fontMinus");
+      const fontPlus = document.getElementById("fontPlus");
+      const fontSizeLabel = document.getElementById("fontSizeLabel");
+
+      let recognition = null;
+      let running = false;
+      let paused = false;
+      let manuallyStopped = false;
+      let startTimestamp = 0;
+      let accumulatedMs = 0;
+      let timerInterval = null;
+      let segmentStartSec = 0;
+      let records = [];
+      let finalTranscript = "";
+      let currentFontSize = Number(localStorage.getItem("speechToolFontSize")) || 28;
+
+      function formatTime(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(totalSeconds));
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        const mm = String(minutes).padStart(2, "0");
+        const ss = String(secs).padStart(2, "0");
+        return hours > 0 ? `${String(hours).padStart(2, "0")}:${mm}:${ss}` : `${mm}:${ss}`;
+      }
+
+      function elapsedMs() {
+        return accumulatedMs + (running && !paused ? Date.now() - startTimestamp : 0);
+      }
+
+      function elapsedSeconds() {
+        return elapsedMs() / 1000;
+      }
+
+      function updateTimer() {
+        timerEl.textContent = formatTime(elapsedSeconds());
+        updateStats();
+      }
+
+      function setStatus(text, type = "") {
+        statusEl.textContent = text;
+        statusEl.className = `status ${type}`.trim();
+      }
+
+      function setButtons() {
+        startBtn.disabled = running && !paused;
+        startBtn.textContent = paused ? "繼續" : "開始";
+        pauseBtn.disabled = !running || paused;
+        stopBtn.disabled = !running;
+      }
+
+      function startTimer() {
+        startTimestamp = Date.now();
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 200);
+      }
+
+      function pauseTimer() {
+        accumulatedMs = elapsedMs();
+        clearInterval(timerInterval);
+        timerInterval = null;
+        updateTimer();
+      }
+
+      function stopTimer() {
+        if (running && !paused) accumulatedMs = elapsedMs();
+        clearInterval(timerInterval);
+        timerInterval = null;
+        updateTimer();
+      }
+
+      function initRecognition() {
+        if (!SpeechRecognition) return false;
+        recognition = new SpeechRecognition();
+        recognition.lang = "en-US";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => setStatus("正在聆聽", "listening");
+
+        recognition.onresult = (event) => {
+          let interimTranscript = "";
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const text = event.results[i][0].transcript.trim();
+            if (!text) continue;
+
+            if (event.results[i].isFinal) {
+              const endSec = elapsedSeconds();
+              const duration = Math.max(0, endSec - segmentStartSec);
+
+              records.push({
+                start: segmentStartSec,
+                end: endSec,
+                duration,
+                text
+              });
+
+              finalTranscript += (finalTranscript ? " " : "") + text;
+              segmentStartSec = endSec;
+              renderRecords();
+            } else {
+              interimTranscript += (interimTranscript ? " " : "") + text;
+            }
+          }
+
+          liveTextEl.innerHTML = "";
+          const finalSpan = document.createElement("span");
+          finalSpan.textContent = finalTranscript || "";
+          const interimSpan = document.createElement("span");
+          interimSpan.className = "interim";
+          interimSpan.textContent = interimTranscript ? (finalTranscript ? " " : "") + interimTranscript : "";
+          liveTextEl.append(finalSpan, interimSpan);
+
+          if (!finalTranscript && !interimTranscript) {
+            liveTextEl.innerHTML = '<span class="interim">正在等待語音...</span>';
+          }
+          updateStats();
+        };
+
+        recognition.onerror = (event) => {
+          if (event.error === "no-speech") {
+            setStatus("沒有偵測到語音，仍在等待", "");
+            return;
+          }
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            setStatus("麥克風權限未允許", "error");
+            running = false;
+            paused = false;
+            stopTimer();
+            setButtons();
+            return;
+          }
+          setStatus(`語音辨識錯誤：${event.error}`, "error");
+        };
+
+        recognition.onend = () => {
+          if (running && !paused && !manuallyStopped) {
+            try {
+              recognition.start();
+            } catch (_) {
+              setTimeout(() => {
+                if (running && !paused && !manuallyStopped) {
+                  try { recognition.start(); } catch (_) {}
+                }
+              }, 300);
+            }
+          }
+        };
+
+        return true;
+      }
+
+      function beginRecognition() {
+        if (!recognition && !initRecognition()) {
+          setStatus("此瀏覽器不支援語音辨識，請改用 Chrome 或 Edge", "error");
+          return false;
+        }
+        manuallyStopped = false;
+        try {
+          recognition.start();
+          return true;
+        } catch (_) {
+          return true;
+        }
+      }
+
+      function stopRecognition() {
+        manuallyStopped = true;
+        if (recognition) {
+          try { recognition.stop(); } catch (_) {}
+        }
+      }
+
+      function countWords(text) {
+        const matches = text.trim().match(/[A-Za-z0-9']+/g);
+        return matches ? matches.length : 0;
+      }
+
+      function updateStats() {
+        const words = countWords(finalTranscript);
+        const minutes = elapsedSeconds() / 60;
+        segmentCountEl.textContent = String(records.length);
+        wordCountEl.textContent = String(words);
+        wpmEl.textContent = minutes > 0 ? String(Math.round(words / minutes)) : "0";
+      }
+
+      function renderRecords() {
+        recordsEl.innerHTML = "";
+        if (records.length === 0) {
+          recordsEl.innerHTML = '<div class="record-empty">完成的辨識內容會依序顯示在這裡。</div>';
+          updateStats();
+          return;
+        }
+
+        records.forEach((item, index) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "record-item";
+
+          const meta = document.createElement("div");
+          meta.className = "record-meta";
+          meta.textContent = `第 ${index + 1} 段　${formatTime(item.start)}–${formatTime(item.end)}　約 ${item.duration.toFixed(1)} 秒`;
+
+          const text = document.createElement("div");
+          text.className = "record-text";
+          text.textContent = item.text;
+
+          wrapper.append(meta, text);
+          recordsEl.appendChild(wrapper);
+        });
+
+        recordsEl.scrollTop = recordsEl.scrollHeight;
+        updateStats();
+      }
+
+      function resetPractice() {
+        stopRecognition();
+        running = false;
+        paused = false;
+        accumulatedMs = 0;
+        startTimestamp = 0;
+        segmentStartSec = 0;
+        records = [];
+        finalTranscript = "";
+        clearInterval(timerInterval);
+        timerInterval = null;
+        timerEl.textContent = "00:00";
+        liveTextEl.innerHTML = '<span class="interim">按下開始後，辨識內容會顯示在這裡。</span>';
+        setStatus("尚未開始");
+        renderRecords();
+        setButtons();
+      }
+
+      startBtn.addEventListener("click", () => {
+        if (!SpeechRecognition) {
+          setStatus("此瀏覽器不支援語音辨識，請改用 Chrome 或 Edge", "error");
+          return;
+        }
+
+        if (!running) {
+          running = true;
+          paused = false;
+          segmentStartSec = elapsedSeconds();
+          startTimer();
+          beginRecognition();
+        } else if (paused) {
+          paused = false;
+          segmentStartSec = elapsedSeconds();
+          startTimer();
+          beginRecognition();
+        }
+        setButtons();
+      });
+
+      pauseBtn.addEventListener("click", () => {
+        if (!running || paused) return;
+        paused = true;
+        pauseTimer();
+        stopRecognition();
+        setStatus("已暫停");
+        setButtons();
+      });
+
+      stopBtn.addEventListener("click", () => {
+        if (!running) return;
+        stopRecognition();
+        stopTimer();
+        running = false;
+        paused = false;
+        setStatus("已停止");
+        setButtons();
+      });
+
+      resetBtn.addEventListener("click", () => {
+        if (confirm("確定要重設計時與全部辨識紀錄嗎？")) resetPractice();
+      });
+
+      clearRecordsBtn.addEventListener("click", () => {
+        if (!records.length) return;
+        if (confirm("確定要清除逐段紀錄嗎？計時不會重設。")) {
+          records = [];
+          finalTranscript = "";
+          liveTextEl.innerHTML = '<span class="interim">紀錄已清除，語音辨識仍可繼續。</span>';
+          segmentStartSec = elapsedSeconds();
+          renderRecords();
+        }
+      });
+
+      exportBtn.addEventListener("click", () => {
+        const lines = [
+          "演講練習紀錄",
+          `總時間：${formatTime(elapsedSeconds())}`,
+          `辨識段數：${records.length}`,
+          `英文單字數：${countWords(finalTranscript)}`,
+          "",
+          ...records.flatMap((item, index) => [
+            `[${index + 1}] ${formatTime(item.start)}–${formatTime(item.end)}（${item.duration.toFixed(1)} 秒）`,
+            item.text,
+            ""
+          ])
+        ];
+        const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `speech-practice-${new Date().toISOString().slice(0, 10)}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".tab-button").forEach((b) => b.classList.toggle("active", b === button));
+          document.querySelectorAll(".page").forEach((page) => page.classList.toggle("active", page.id === button.dataset.tab));
+        });
+      });
+
+      function applyScript(text) {
+        const content = text.trim();
+        if (!content) {
+          scriptView.textContent = "尚未載入講稿。你仍然可以切回語音練習，原本功能不受影響。";
+          scriptView.classList.add("script-placeholder");
+          localStorage.removeItem("speechToolScript");
+          return;
+        }
+        scriptView.textContent = content;
+        scriptView.classList.remove("script-placeholder");
+        localStorage.setItem("speechToolScript", content);
+      }
+
+      scriptFile.addEventListener("change", () => {
+        const file = scriptFile.files && scriptFile.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          scriptEditor.value = String(reader.result || "");
+          applyScript(scriptEditor.value);
+        };
+        reader.onerror = () => alert("讀取檔案失敗，請確認檔案為 TXT 格式。");
+        reader.readAsText(file, "UTF-8");
+      });
+
+      applyScriptBtn.addEventListener("click", () => applyScript(scriptEditor.value));
+
+      clearScriptBtn.addEventListener("click", () => {
+        if (scriptEditor.value || localStorage.getItem("speechToolScript")) {
+          if (!confirm("確定要清除講稿嗎？")) return;
+        }
+        scriptEditor.value = "";
+        scriptFile.value = "";
+        applyScript("");
+      });
+
+      function updateFontSize() {
+        currentFontSize = Math.min(60, Math.max(18, currentFontSize));
+        scriptView.style.fontSize = `${currentFontSize}px`;
+        fontSizeLabel.textContent = `${currentFontSize}px`;
+        localStorage.setItem("speechToolFontSize", String(currentFontSize));
+      }
+
+      fontMinus.addEventListener("click", () => { currentFontSize -= 2; updateFontSize(); });
+      fontPlus.addEventListener("click", () => { currentFontSize += 2; updateFontSize(); });
+
+      fullscreenBtn.addEventListener("click", async () => {
+        try {
+          if (!document.fullscreenElement) {
+            await scriptView.requestFullscreen();
+          } else {
+            await document.exitFullscreen();
+          }
+        } catch (_) {
+          alert("此瀏覽器目前無法進入全螢幕模式。");
+        }
+      });
+
+      const savedScript = localStorage.getItem("speechToolScript") || "";
+      scriptEditor.value = savedScript;
+      applyScript(savedScript);
+      updateFontSize();
+      setButtons();
+      updateStats();
+    })();
+  </script>
+
+</body>
+</html>

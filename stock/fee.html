@@ -73,12 +73,11 @@
       </thead>
       <tbody>
         <tr>
-          <!-- 這裡的預設 value 清空，改由 JavaScript 從 JSON 動態填入 -->
-          <td><input id="fee" type="number" value="" oninput="calculateFunds()"></td>
+          <td><input id="fee" type="number" value="20" oninput="calculateFunds()"></td>
           <td><input id="price" type="number" value="0" step="0.01" oninput="calculateFunds()"></td>
           <td><input id="shares" type="number" value="0" oninput="calculateFunds()"></td>
           <td><input id="total" class="readonly" type="text" readonly></td>
-          <td><input id="cash" type="number" value="" oninput="calculateFunds()"></td>
+          <td><input id="cash" type="number" value="4772.33" oninput="calculateFunds()"></td>
           <td><input id="remaining" class="readonly" type="text" readonly></td>
         </tr>
       </tbody>
@@ -144,31 +143,6 @@
       return parseFloat(document.getElementById(id).value) || 0;
     }
 
-    // 新增：從 fee.json 非同步讀取資料並初始化
-    async function initData() {
-      try {
-        // 抓取同目錄下的 fee.json
-        const response = await fetch('fee.json');
-        if (!response.ok) throw new Error('無法讀取 JSON 檔案');
-        
-        const data = await response.json();
-        
-        // 將資料寫入欄位
-        document.getElementById('fee').value = data.default_fee;
-        document.getElementById('cash').value = data.available_cash;
-        
-        // 確保欄位填入資料後，執行一次計算
-        calculateFunds();
-        
-      } catch (error) {
-        console.error('初始化失敗，使用備用預設值:', error);
-        // 萬一 JSON 讀取失敗的備用防錯機制
-        document.getElementById('fee').value = 20;
-        document.getElementById('cash').value = 5000;
-        calculateFunds();
-      }
-    }
-
     // 區塊 1 的獨立計算
     function calculateFunds() {
       const fee = getNumber('fee');
@@ -226,14 +200,10 @@
       }
     }
 
-    // 頁面載入時執行的主程序
-    async function main() {
-      await initData();       // 1. 先讀取 JSON 資料並塞入欄位
-      calculateAverage();     // 2. 初始化第二區塊
-      calculateByPercent();   // 3. 初始化第三區塊
-    }
-
-    main();
+    // 頁面載入時初始化計算結果
+    calculateFunds();
+    calculateAverage();
+    calculateByPercent();
   </script>
 </body>
 </html>

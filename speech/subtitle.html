@@ -3,12 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Speech Studio</title>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0c0f14">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Speech Subtitle</title>
 <style>
   :root { --font-size: 38px; --line-gap: 18px; }
   * { box-sizing: border-box; }
@@ -44,10 +39,8 @@
     button,.file-btn{padding:8px 10px}
     select{max-width:180px}
   }
-  @media(display-mode:standalone){
-    .topbar{padding-top:max(12px,env(safe-area-inset-top))}
-    .footer{padding-bottom:env(safe-area-inset-bottom);height:calc(34px + env(safe-area-inset-bottom))}
-  }
+  .topbar{padding-top:max(12px,env(safe-area-inset-top))}
+  .footer{padding-bottom:env(safe-area-inset-bottom);height:calc(34px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
@@ -58,7 +51,6 @@
   <button id="nextBtn">下一句 →</button>
   <button id="restartBtn">↺ 重頭</button>
   <button id="fullscreenBtn">⛶ 全螢幕</button>
-  <button id="installBtn" hidden>＋ 安裝 App</button>
   <span class="control">速度 <input id="speed" type="range" min="0.5" max="1.8" step="0.1" value="1"><span id="speedValue">1.0×</span></span>
   <span class="control">字體 <input id="fontSize" type="range" min="24" max="64" step="2" value="38"></span>
   <select id="voice" title="Voice"><option value="">System default</option></select>
@@ -188,24 +180,7 @@ document.addEventListener('keydown',e=>{
 ['dragleave','drop'].forEach(type=>document.addEventListener(type,e=>{e.preventDefault();document.body.classList.remove('dragging')}));
 document.addEventListener('drop',e=>{const file=[...e.dataTransfer.files].find(f=>f.type==='text/plain'||f.name.toLowerCase().endsWith('.txt'));if(file)loadFile(file);else alert('請放入 TXT 檔案。')});
 window.addEventListener('beforeunload',stopSpeech);
-let deferredInstallPrompt=null;
-const installBtn=$('installBtn');
-window.addEventListener('beforeinstallprompt',event=>{
-  event.preventDefault();
-  deferredInstallPrompt=event;
-  installBtn.hidden=false;
-});
-installBtn.addEventListener('click',async()=>{
-  if(!deferredInstallPrompt)return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt=null;
-  installBtn.hidden=true;
-});
-window.addEventListener('appinstalled',()=>{installBtn.hidden=true;});
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(console.error));
-}
+
 
 </script>
 </body>
