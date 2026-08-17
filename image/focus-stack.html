@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>人物／背景焦點合成工具</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#151c2f; --line:#2b3856; --text:#eef2ff; --muted:#aab5d1; --accent:#61dafb; --danger:#fb7185; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; font:15px/1.5 system-ui,-apple-system,"Noto Sans TC",sans-serif; background:linear-gradient(145deg,#080c18,#111a31); color:var(--text); }
+    header { padding:22px max(18px,calc((100vw - 1180px)/2)); border-bottom:1px solid var(--line); background:#0b1020cc; }
+    h1 { margin:0 0 4px; font-size:clamp(22px,4vw,32px); }
+    p { margin:0; color:var(--muted); }
+    main { width:min(1180px,100%); margin:auto; padding:18px; display:grid; grid-template-columns:310px 1fr; gap:18px; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:0 14px 40px #0005; }
+    .controls { align-self:start; display:grid; gap:16px; }
+    .section { display:grid; gap:9px; }
+    .section + .section { border-top:1px solid var(--line); padding-top:15px; }
+    .section-title { font-weight:700; }
+    label.file { display:grid; gap:5px; color:var(--muted); }
+    input[type=file] { width:100%; color:var(--muted); }
+    input[type=file]::file-selector-button, button { border:1px solid var(--line); border-radius:10px; padding:9px 12px; background:#202a45; color:var(--text); font-weight:650; cursor:pointer; }
+    button:hover { border-color:var(--accent); }
+    button.primary { background:#087ea4; border-color:#20bde8; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row button { flex:1; }
+    .range { display:grid; grid-template-columns:1fr auto; gap:5px 10px; align-items:center; color:var(--muted); }
+    .range input { grid-column:1/-1; width:100%; }
+    output { color:var(--text); font-variant-numeric:tabular-nums; }
+    .mode button.active { outline:2px solid var(--accent); background:#16465d; }
+    .stage-panel { min-width:0; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+    .status { color:var(--muted); }
+    .stage { position:relative; min-height:420px; display:grid; place-items:center; overflow:auto; border-radius:12px; background-color:#070a12; background-image:linear-gradient(45deg,#151b28 25%,transparent 25%),linear-gradient(-45deg,#151b28 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#151b28 75%),linear-gradient(-45deg,transparent 75%,#151b28 75%); background-size:24px 24px; background-position:0 0,0 12px,12px -12px,-12px 0; touch-action:none; }
+    canvas { display:block; max-width:100%; max-height:72vh; width:auto; height:auto; cursor:crosshair; }
+    .empty { position:absolute; inset:0; display:grid; place-items:center; padding:30px; text-align:center; color:var(--muted); pointer-events:none; }
+    .note { font-size:13px; color:var(--muted); }
+    .legend { display:flex; gap:14px; font-size:13px; color:var(--muted); }
+    .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; background:#ff315d; }
+    @media (max-width:800px) { main { grid-template-columns:1fr; } .stage { min-height:340px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>人物／背景焦點合成</h1>
+    <p>先載入兩張相同構圖的照片，再把人物塗紅。紅色區域取自人物清晰照，其餘取自背景清晰照。</p>
+  </header>
+  <main>
+    <aside class="panel controls">
+      <section class="section">
+        <div class="section-title">1. 載入照片</div>
+        <label class="file">人物清晰照<input id="personFile" type="file" accept="image/*"></label>
+        <label class="file">背景清晰照<input id="backgroundFile" type="file" accept="image/*"></label>
+        <div class="note">建議使用腳架，且兩張照片的曝光、白平衡與構圖保持一致。</div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">2. 標記人物</div>
+        <div class="row mode">
+          <button id="paintBtn" class="active" type="button">畫人物</button>
+          <button id="eraseBtn" type="button">擦除</button>
+        </div>
+        <label class="range"><span>筆刷大小</span><output id="brushOut">70</output><input id="brush" type="range" min="5" max="300" value="70"></label>
+        <label class="range"><span>邊緣柔化</span><output id="featherOut">8</output><input id="feather" type="range" min="0" max="40" value="8"></label>
+        <div class="row"><button id="undoBtn" type="button">復原</button><button id="clearBtn" type="button">清除遮罩</button></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">3. 微調背景對齊</div>
+        <label class="range"><span>水平位移</span><output id="xOut">0</output><input id="offsetX" type="range" min="-100" max="100" value="0"></label>
+        <label class="range"><span>垂直位移</span><output id="yOut">0</output><input id="offsetY" type="range" min="-100" max="100" value="0"></label>
+        <label class="range"><span>背景縮放</span><output id="scaleOut">100%</output><input id="bgScale" type="range" min="95" max="105" step="0.1" value="100"></label>
+        <div class="note">人物輪廓若出現雙邊，切換「交錯比較」並微調位移與縮放。</div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">4. 匯出</div>
+        <button id="downloadBtn" class="primary" type="button" disabled>下載合成 PNG</button>
+        <div class="note">輸出使用人物照片的原始解析度。所有處理都在你的裝置中完成。</div>
+      </section>
+    </aside>
+
+    <section class="panel stage-panel">
+      <div class="toolbar">
+        <div class="row mode" id="viewModes">
+          <button data-view="mask" class="active" type="button">遮罩編輯</button>
+          <button data-view="result" type="button">合成結果</button>
+          <button data-view="compare" type="button">交錯比較</button>
+        </div>
+        <span id="status" class="status">等待照片</span>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="display"></canvas>
+        <div id="empty" class="empty">請先載入「人物清晰照」與「背景清晰照」</div>
+      </div>
+      <div class="legend"><span><i class="dot"></i>紅色：使用人物清晰照</span><span>未標記：使用背景清晰照</span></div>
+    </section>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const display = $('display'), dctx = display.getContext('2d', {willReadFrequently:true});
+    const mask = document.createElement('canvas'), mctx = mask.getContext('2d', {willReadFrequently:true});
+    const personCanvas = document.createElement('canvas'), pctx = personCanvas.getContext('2d');
+    const bgCanvas = document.createElement('canvas'), bctx = bgCanvas.getContext('2d');
+    let personImg=null, bgImg=null, mode='paint', view='mask', drawing=false, last=null, undo=[];
+    const MAX_PREVIEW=1600;
+
+    function loadImage(file) {
+      return new Promise((resolve,reject) => {
+        const img=new Image(), url=URL.createObjectURL(file);
+        img.onload=()=>{ URL.revokeObjectURL(url); resolve(img); };
+        img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('無法讀取照片')); };
+        img.src=url;
+      });
+    }
+    async function choose(which,file) {
+      if(!file) return;
+      try { const img=await loadImage(file); if(which==='person') personImg=img; else bgImg=img; setup(); }
+      catch(e){ alert(e.message); }
+    }
+    function setup() {
+      if(!personImg || !bgImg) return;
+      const s=Math.min(1,MAX_PREVIEW/Math.max(personImg.naturalWidth,personImg.naturalHeight));
+      const w=Math.round(personImg.naturalWidth*s), h=Math.round(personImg.naturalHeight*s);
+      [display,mask,personCanvas,bgCanvas].forEach(c=>{c.width=w;c.height=h;});
+      pctx.drawImage(personImg,0,0,w,h); mctx.clearRect(0,0,w,h); undo=[];
+      $('empty').hidden=true; $('downloadBtn').disabled=false;
+      $('status').textContent=`預覽 ${w} × ${h}｜輸出 ${personImg.naturalWidth} × ${personImg.naturalHeight}`;
+      render();
+    }
+    function drawBackground(ctx,w,h,source=bgImg,ratio=1) {
+      const scale=+$('bgScale').value/100;
+      const dx=+$('offsetX').value*ratio, dy=+$('offsetY').value*ratio;
+      const sw=w*scale, sh=h*scale;
+      ctx.drawImage(source,(w-sw)/2+dx,(h-sh)/2+dy,sw,sh);
+    }
+    function featheredMask(target,w,h,sourceMask=mask) {
+      const temp=document.createElement('canvas'); temp.width=w; temp.height=h;
+      const t=temp.getContext('2d');
+      const blur=+$('feather').value*(w/mask.width);
+      t.filter=blur?`blur(${blur}px)`:'none';
+      const pad=Math.ceil(blur*2);
+      t.drawImage(sourceMask,-pad,-pad,w+pad*2,h+pad*2);
+      return temp;
+    }
+    function compose(ctx,w,h,highRes=false) {
+      ctx.clearRect(0,0,w,h); drawBackground(ctx,w,h,bgImg,w/display.width);
+      const layer=document.createElement('canvas'); layer.width=w; layer.height=h;
+      const l=layer.getContext('2d'); l.drawImage(personImg,0,0,w,h);
+      l.globalCompositeOperation='destination-in'; l.drawImage(featheredMask(layer,w,h),0,0);
+      ctx.drawImage(layer,0,0);
+    }
+    function render() {
+      if(!personImg||!bgImg) return;
+      dctx.clearRect(0,0,display.width,display.height);
+      if(view==='result') compose(dctx,display.width,display.height);
+      else if(view==='compare') {
+        pctx.clearRect(0,0,display.width,display.height); pctx.drawImage(personImg,0,0,display.width,display.height);
+        bctx.clearRect(0,0,display.width,display.height); drawBackground(bctx,display.width,display.height);
+        const size=48;
+        for(let y=0;y<display.height;y+=size) for(let x=0;x<display.width;x+=size)
+          dctx.drawImage(((x/size+y/size)&1)?personCanvas:bgCanvas,x,y,size,size,x,y,size,size);
+      } else {
+        dctx.drawImage(personCanvas,0,0);
+        dctx.save(); dctx.globalAlpha=.48; dctx.fillStyle='#ff174d';
+        const tint=document.createElement('canvas'); tint.width=display.width;tint.height=display.height;
+        const t=tint.getContext('2d'); t.fillStyle='#ff174d';t.fillRect(0,0,tint.width,tint.height);
+        t.globalCompositeOperation='destination-in';t.drawImage(mask,0,0);
+        dctx.drawImage(tint,0,0); dctx.restore();
+      }
+    }
+    function point(e) {
+      const r=display.getBoundingClientRect();
+      return {x:(e.clientX-r.left)*display.width/r.width,y:(e.clientY-r.top)*display.height/r.height};
+    }
+    function snapshot(){ if(undo.length>=15) undo.shift(); undo.push(mctx.getImageData(0,0,mask.width,mask.height)); }
+    function stroke(a,b) {
+      mctx.save(); mctx.lineCap='round';mctx.lineJoin='round';mctx.lineWidth=+$('brush').value;
+      if(mode==='paint'){mctx.globalCompositeOperation='source-over';mctx.strokeStyle='#fff';}
+      else {mctx.globalCompositeOperation='destination-out';mctx.strokeStyle='#000';}
+      mctx.beginPath();mctx.moveTo(a.x,a.y);mctx.lineTo(b.x,b.y);mctx.stroke();mctx.restore(); render();
+    }
+    display.addEventListener('pointerdown',e=>{ if(view!=='mask'||!personImg)return; e.preventDefault();display.setPointerCapture(e.pointerId);snapshot();drawing=true;last=point(e);stroke(last,last); });
+    display.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);stroke(last,p);last=p;});
+    ['pointerup','pointercancel'].forEach(n=>display.addEventListener(n,()=>{drawing=false;last=null;}));
+
+    $('personFile').onchange=e=>choose('person',e.target.files[0]);
+    $('backgroundFile').onchange=e=>choose('background',e.target.files[0]);
+    $('paintBtn').onclick=()=>setMode('paint'); $('eraseBtn').onclick=()=>setMode('erase');
+    function setMode(v){mode=v;$('paintBtn').classList.toggle('active',v==='paint');$('eraseBtn').classList.toggle('active',v==='erase');}
+    $('undoBtn').onclick=()=>{const s=undo.pop();if(s){mctx.putImageData(s,0,0);render();}};
+    $('clearBtn').onclick=()=>{if(!personImg)return;snapshot();mctx.clearRect(0,0,mask.width,mask.height);render();};
+    $('viewModes').onclick=e=>{const b=e.target.closest('[data-view]');if(!b)return;view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));render();};
+    [['brush','brushOut',v=>v],['feather','featherOut',v=>v],['offsetX','xOut',v=>v],['offsetY','yOut',v=>v],['bgScale','scaleOut',v=>v+'%']].forEach(([id,out,fmt])=>{$(id).oninput=()=>{$(out).value=fmt($(id).value);render();};});
+    $('downloadBtn').onclick=()=>{
+      if(!personImg||!bgImg)return;
+      $('status').textContent='正在產生原始尺寸圖片…';
+      requestAnimationFrame(()=>{
+        const out=document.createElement('canvas');out.width=personImg.naturalWidth;out.height=personImg.naturalHeight;
+        compose(out.getContext('2d'),out.width,out.height,true);
+        out.toBlob(blob=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='focus-composite.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);$('status').textContent=`完成｜${out.width} × ${out.height}`;},'image/png');
+      });
+    };
+  })();
+  </script>
+</body>
+</html>
