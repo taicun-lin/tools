@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<script>
+/* =====================================================================
+   ★ 我的觀察清單設定 ★  ← 平常只需要改這裡
+   ---------------------------------------------------------------------
+   格式和 TradingView Market Summary 設定頁產生的 symbol-sectors 完全一樣，
+   可以直接把那段 [ ... ] 整個貼過來取代下面的內容。
+   改完存檔、重新整理頁面就會套用（會覆蓋你在網頁上「管理清單」做的修改）。
+   ===================================================================== */
+const WATCHLIST = [
+  { "sectionName": "USA",   "symbols": ["NASDAQ:NVDA","NASDAQ:INTC","NASDAQ:ADBE","NYSE:BSX","NASDAQ:GOOG","NASDAQ:KLAC","NYSE:BA","NYSE:STZ","AMEX:BIL"] },
+  { "sectionName": "TWN",   "symbols": ["TWSE:0050","TWSE:0056","TWSE:2412"] },
+  { "sectionName": "INDEX", "symbols": ["AMEX:SPY","NASDAQ:QQQ","TVC:DJI","TWSE:IX0001","FX_IDC:USDTWD","FX_IDC:USDJPY"] },
+  { "sectionName": "WATCH", "symbols": ["AMEX:VTI","NASDAQ:VGLT","AMEX:BIL","NYSE:MCD","NASDAQ:NVDA","NASDAQ:ANT"] }
+];
+
+/* 選填：自訂顯示名稱（大圖標題用），沒寫的就顯示代號 */
+const NAMES = {
+  "TWSE:0050": "元大台灣50",
+  "TWSE:0056": "元大高股息",
+  "TWSE:2412": "中華電",
+  "IG:TAIWAN": "台灣指數",
+  "FX_IDC:USDTWD": "美元/台幣",
+  "FX_IDC:USDJPY": "美元/日圓"
+};
+
+/* 清單頁每一欄的最小寬度（px）：數字越小，一列擠越多欄 */
+const COLUMN_MIN_WIDTH = 320;
+/* ===================================================================== */
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的觀察清單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<!-- TradingView 新版 Web Component -->
+<script type="module" src="https://widgets.tradingview-widget.com/w/en/tv-market-summary.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0F0F0F;
+    --panel: #161616;
+    --hover: #1c1c1c;
+    --line: #262626;
+    --text: #DBDBDB;
+    --muted: #868993;
+    --up: #22ab94;
+    --down: #f7525f;
+    --ui: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --code: "Space Grotesk", "Noto Sans TC", -apple-system, sans-serif;
+
+    /* TradingView Web Component 的配色 */
+    --tv-widget-background-color: transparent;
+    --tv-widget-text-color: #DBDBDB;
+    --tv-widget-positive-color: #22ab94;
+    --tv-widget-positive-area-top-color: rgba(34, 171, 148, 0.25);
+    --tv-widget-positive-area-bottom-color: rgba(34, 171, 148, 0.02);
+    --tv-widget-negative-color: #f7525f;
+    --tv-widget-negative-area-top-color: rgba(247, 82, 95, 0.25);
+    --tv-widget-negative-area-bottom-color: rgba(247, 82, 95, 0.02);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--ui); font-size: 14px; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .bar h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  .count { color: var(--muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 7px 14px; cursor: pointer; color: var(--muted); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--panel); color: var(--text); }
+  .seg.small button { padding: 5px 10px; font-size: 12px; }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 16px 24px 48px; }
+  .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+
+  .btn { background: var(--up); color: #06231e; border: 0; border-radius: 6px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .ghost:hover, .ghost[aria-expanded="true"] { color: var(--text); border-color: var(--muted); }
+
+  /* ===== 清單（Market Summary） ===== */
+  .summary { border-top: 1px solid var(--line); padding-top: 8px; min-height: 200px; }
+  .summary.cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--colw, 320px), 100%), 1fr)); gap: 12px 16px; align-items: start; }
+  .summary .sec { border: 1px solid var(--line); border-radius: 8px; padding: 8px 4px; min-width: 0; }
+  .summary tv-market-summary { display: block; width: 100%; }
+  .summary .placeholder { color: var(--muted); padding: 32px 0; text-align: center; }
+
+  /* ===== 管理清單 ===== */
+  .manage { border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; background: var(--panel); }
+  .addrow { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .addrow input { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .addrow input::placeholder { color: #55585f; }
+  #symInput { flex: 2; min-width: 200px; }
+  #nameInput, #groupInput { flex: 1; min-width: 120px; }
+  .mtable { width: 100%; border-collapse: collapse; }
+  .mtable th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .mtable td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .mtable td.sym { font-family: var(--code); font-weight: 600; }
+  .mtable td.act { text-align: right; white-space: nowrap; }
+  .mtable input { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px 6px; width: 100%; }
+  .mtable input:hover, .mtable input:focus { border-color: var(--line); background: var(--bg); }
+  .icon { background: none; border: 0; width: 28px; height: 28px; border-radius: 6px; color: var(--muted); cursor: pointer; }
+  .icon:hover { background: var(--line); color: var(--text); }
+  .icon.del:hover { color: var(--down); }
+  .mfoot { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .tablewrap { overflow-x: auto; }
+
+  /* ===== 全部圖表 ===== */
+  .grid { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 12px; }
+  .card { height: 240px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer; background: #131722; }
+  .card:hover { border-color: var(--muted); }
+  .card .tv { height: 100%; pointer-events: none; }
+  .grouphead { grid-column: 1 / -1; color: var(--muted); font-size: 13px; margin: 8px 0 -4px; }
+
+  /* ===== 單一圖表 ===== */
+  .detail { position: fixed; inset: 0; z-index: 10; background: var(--bg); display: flex; flex-direction: column; }
+  .detail .bar { max-width: none; width: 100%; border-bottom: 1px solid var(--line); }
+  .detail .title { font-family: var(--code); font-size: 18px; font-weight: 600; }
+  .detail .sub { color: var(--muted); font-size: 13px; }
+  .detail .chart { flex: 1; min-height: 0; }
+
+  .tradingview-widget-container { height: 100%; width: 100%; }
+
+  @media (max-width: 720px) {
+    .bar, .wrap { padding-left: 14px; padding-right: 14px; }
+    .grid { grid-template-columns: 1fr; }
+    .colpick { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <h1>我的觀察清單</h1>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <div class="seg" role="group" aria-label="檢視方式">
+      <button id="viewList" aria-pressed="true">清單</button>
+      <button id="viewGrid" aria-pressed="false">全部圖表</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- 清單檢視 -->
+  <section id="listView">
+    <div class="toolbar">
+      <span class="spacer"></span>
+      <button class="ghost" id="manageBtn" aria-expanded="false" aria-controls="manage">管理清單</button>
+    </div>
+
+    <div class="manage" id="manage" hidden>
+      <form class="addrow" id="addForm" autocomplete="off">
+        <input id="symInput" placeholder="交易所:代號，例如 NASDAQ:NVDA" aria-label="代號" required>
+        <input id="nameInput" placeholder="顯示名稱（選填）" aria-label="顯示名稱">
+        <input id="groupInput" placeholder="分組（選填）" aria-label="分組" list="groupList">
+        <datalist id="groupList"></datalist>
+        <button class="btn" type="submit">加入清單</button>
+      </form>
+      <div class="tablewrap">
+        <table class="mtable">
+          <thead><tr><th>代號</th><th>顯示名稱</th><th>分組</th><th></th></tr></thead>
+          <tbody id="mbody"></tbody>
+        </table>
+      </div>
+      <div class="mfoot">
+        <button type="button" class="ghost" id="exportBtn">匯出清單</button>
+        <button type="button" class="ghost" id="importBtn">匯入清單</button>
+        <button type="button" class="ghost" id="resetBtn">還原預設</button>
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <!-- 全部圖表檢視 -->
+  <section id="gridView" hidden>
+    <div class="toolbar">
+      <span>區間</span>
+      <div class="seg small" id="rangePick" role="group" aria-label="圖表區間"></div>
+      <span class="colpick" style="display:contents">
+        <span>每列</span>
+        <div class="seg small" id="colPick" role="group" aria-label="每列幾張"></div>
+      </span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+
+<!-- 單一圖表 -->
+<div class="detail" id="detail" hidden>
+  <div class="bar">
+    <button class="ghost" id="backBtn">← 返回</button>
+    <div>
+      <div class="title" id="dTitle"></div>
+      <div class="sub" id="dSub"></div>
+    </div>
+    <span class="spacer"></span>
+    <span class="count" id="dPos"></span>
+    <button class="ghost" id="prevBtn">↑ 上一檔</button>
+    <button class="ghost" id="nextBtn">↓ 下一檔</button>
+  </div>
+  <div class="chart" id="chart"></div>
+</div>
+
+<script>
+  // 由檔案最上方的 WATCHLIST 轉成內部清單格式
+  const DEFAULT_LIST = WATCHLIST.flatMap(sec =>
+    (sec.symbols || []).map(sym => ({ symbol: sym, name: NAMES[sym] || "", group: sec.sectionName || "觀察清單" }))
+  );
+  const DEFAULTS_SIG = JSON.stringify([WATCHLIST, NAMES]);
+  const DEFAULT_GROUP = "觀察清單";
+  const LOCALE = "zh_TW";
+  const TIMEZONE = "Asia/Taipei";
+  const STORE_KEY = "tv-watchlist-v1";
+  const PREF_KEY = "tv-watchlist-prefs-v3";
+  const RANGES = [["1D","1天"],["1M","1月"],["3M","3月"],["12M","1年"],["60M","5年"],["ALL","全部"]];
+
+  const SIG_KEY = "tv-watchlist-defaults-sig";
+  let list = loadJSON(STORE_KEY, null);
+  let storedSig = null;
+  try { storedSig = localStorage.getItem(SIG_KEY); } catch (e) {}
+  if (!Array.isArray(list) || storedSig !== DEFAULTS_SIG) {
+    list = DEFAULT_LIST.map(i => ({ ...i }));
+    saveJSON(STORE_KEY, list);
+    try { localStorage.setItem(SIG_KEY, DEFAULTS_SIG); } catch (e) {}
+  }
+  list = list.map(i => ({ symbol: i.symbol, name: i.name || "", group: i.group || DEFAULT_GROUP }));
+  const prefs = Object.assign({ view: "list", range: "12M", cols: 3 }, loadJSON(PREF_KEY, {}));
+  let detailSymbol = null;
+  let gridBuilt = false;
+
+  function loadJSON(k, fb) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : fb; } catch (e) { return fb; } }
+  function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  // 依分組整理，保留清單順序
+  function groups() {
+    const map = new Map();
+    list.forEach(i => { if (!map.has(i.group)) map.set(i.group, []); map.get(i.group).push(i); });
+    return [...map.entries()];
+  }
+  // 依分組順序排出的清單（上一檔／下一檔用）
+  function orderedList() { return groups().flatMap(([, items]) => items); }
+
+  // ===== 清單：Market Summary Web Component =====
+  function renderSummary() {
+    document.getElementById("count").textContent = `${list.length} 檔`;
+    const host = document.getElementById("summary");
+    host.innerHTML = "";
+    host.classList.remove("cols");
+    if (!list.length) {
+      host.innerHTML = '<div class="placeholder">清單是空的，按「管理清單」加入第一檔。</div>';
+      return;
+    }
+    host.classList.add("cols");
+    host.style.setProperty("--colw", COLUMN_MIN_WIDTH + "px");
+    groups().forEach(([sectionName, items]) => {
+      const box = document.createElement("div");
+      box.className = "sec";
+      const el = document.createElement("tv-market-summary");
+      el.setAttribute("symbol-sectors", JSON.stringify([{ sectionName, symbols: items.map(i => i.symbol) }]));
+      el.setAttribute("mode", "custom");
+      el.setAttribute("direction", "vertical");
+      el.setAttribute("item-size", "compact");
+      el.setAttribute("theme", "dark");
+      el.setAttribute("transparent", "");
+      box.appendChild(el);
+      host.appendChild(box);
+    });
+  }
+
+  // 攔截新版 widget 的代號點擊，改成開啟本頁大圖
+  document.body.addEventListener("tv-link-open", e => {
+    const sym = e.detail?.context?.symbol;
+    if (!sym) return;
+    e.preventDefault();
+    openDetail(sym);
+  });
+
+  // ===== 管理清單 =====
+  function renderManage() {
+    const tb = document.getElementById("mbody");
+    tb.innerHTML = "";
+    list.forEach((item, idx) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="sym"></td>
+        <td><input data-f="name" aria-label="顯示名稱"></td>
+        <td><input data-f="group" aria-label="分組" list="groupList"></td>
+        <td class="act">
+          <button class="icon" data-act="up" aria-label="上移">↑</button>
+          <button class="icon" data-act="down" aria-label="下移">↓</button>
+          <button class="icon del" data-act="del" aria-label="移除">✕</button>
+        </td>`;
+      tr.querySelector(".sym").textContent = item.symbol;
+      tr.querySelector('[data-f="name"]').value = item.name;
+      tr.querySelector('[data-f="group"]').value = item.group;
+      tr.querySelectorAll("input").forEach(inp => inp.addEventListener("change", () => {
+        const v = inp.value.trim();
+        item[inp.dataset.f] = inp.dataset.f === "group" ? (v || DEFAULT_GROUP) : v;
+        commit();
+      }));
+      tr.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => handleTool(b.dataset.act, idx)));
+      tb.appendChild(tr);
+    });
+    const dl = document.getElementById("groupList");
+    dl.innerHTML = "";
+    groups().forEach(([g]) => { const o = document.createElement("option"); o.value = g; dl.appendChild(o); });
+  }
+
+  function handleTool(act, idx) {
+    if (act === "del") {
+      const it = list[idx];
+      if (!confirm(`要從清單移除 ${it.name || it.symbol} 嗎？`)) return;
+      list.splice(idx, 1);
+    } else {
+      const to = act === "up" ? idx - 1 : idx + 1;
+      if (to < 0 || to >= list.length) return;
+      [list[idx], list[to]] = [list[to], list[idx]];
+    }
+    commit();
+  }
+
+  function commit() {
+    saveJSON(STORE_KEY, list);
+    renderManage();
+    renderSummary();
+    gridBuilt = false;
+    if (prefs.view === "grid") renderGrid();
+  }
+
+  // ===== 全部圖表 =====
+  function mountIframeWidget(host, name, config) {
+    host.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "tradingview-widget-container";
+    const inner = document.createElement("div");
+    inner.className = "tradingview-widget-container__widget";
+    inner.style.height = "100%";
+    box.appendChild(inner);
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = `https://s3.tradingview.com/external-embedding/embed-widget-${name}.js`;
+    s.textContent = JSON.stringify(config);
+    box.appendChild(s);
+    host.appendChild(box);
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById("grid");
+    grid.style.setProperty("--cols", prefs.cols);
+    grid.innerHTML = "";
+    const gs = groups();
+    let pos = 0;
+    gs.forEach(([g, items]) => {
+      if (gs.length > 1) {
+        const h = document.createElement("div");
+        h.className = "grouphead";
+        h.textContent = g;
+        grid.appendChild(h);
+      }
+      items.forEach(item => {
+        const myPos = pos++;
+        const card = document.createElement("div");
+        card.className = "card";
+        card.tabIndex = 0;
+        card.setAttribute("aria-label", `${item.name || item.symbol}，按 Enter 開啟圖表`);
+        const tv = document.createElement("div");
+        tv.className = "tv";
+        card.appendChild(tv);
+        card.addEventListener("click", () => openDetail(item.symbol, myPos));
+        card.addEventListener("keydown", e => { if (e.key === "Enter") openDetail(item.symbol, myPos); });
+        grid.appendChild(card);
+        mountIframeWidget(tv, "mini-symbol-overview", {
+          symbol: item.symbol, width: "100%", height: "100%", locale: LOCALE,
+          dateRange: prefs.range, colorTheme: "dark", isTransparent: false,
+          autosize: true, chartOnly: false, noTimeScale: false
+        });
+      });
+    });
+    gridBuilt = true;
+  }
+
+  function buildSeg(hostId, options, current, onPick) {
+    const host = document.getElementById(hostId);
+    options.forEach(([v, label]) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.setAttribute("aria-pressed", String(v === current));
+      b.onclick = () => {
+        [...host.children].forEach(c => c.setAttribute("aria-pressed", String(c === b)));
+        onPick(v);
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function setView(v) {
+    prefs.view = v; saveJSON(PREF_KEY, prefs);
+    document.getElementById("listView").hidden = v !== "list";
+    document.getElementById("gridView").hidden = v !== "grid";
+    document.getElementById("viewList").setAttribute("aria-pressed", String(v === "list"));
+    document.getElementById("viewGrid").setAttribute("aria-pressed", String(v === "grid"));
+    if (v === "grid" && !gridBuilt) renderGrid();
+  }
+
+  // ===== 單一圖表 =====
+  let detailIdx = -1;
+  function openDetail(symbol, atIdx) {
+    detailSymbol = symbol;
+    const ord = orderedList();
+    const idx = (atIdx != null && ord[atIdx]?.symbol === symbol) ? atIdx : ord.findIndex(i => i.symbol === symbol);
+    detailIdx = idx;
+    const item = ord[idx] || { symbol, name: "" };
+    document.getElementById("dTitle").textContent = symbol.split(":").pop();
+    document.getElementById("dSub").textContent = (item.name ? item.name + "　" : "") + symbol;
+    document.getElementById("dPos").textContent = idx >= 0 ? `${idx + 1} / ${ord.length}` : "";
+    document.getElementById("prevBtn").disabled = idx <= 0;
+    document.getElementById("nextBtn").disabled = idx < 0 || idx >= ord.length - 1;
+    document.getElementById("detail").hidden = false;
+    document.body.style.overflow = "hidden";
+    mountIframeWidget(document.getElementById("chart"), "advanced-chart", {
+      autosize: true, symbol, interval: "D", timezone: TIMEZONE, theme: "dark",
+      style: "1", locale: LOCALE, backgroundColor: "#0F0F0F",
+      gridColor: "rgba(242, 242, 242, 0.06)", allow_symbol_change: true,
+      calendar: false, support_host: "https://www.tradingview.com"
+    });
+  }
+  function step(delta) {
+    const ord = orderedList();
+    const next = ord[detailIdx + delta];
+    if (next) openDetail(next.symbol, detailIdx + delta);
+  }
+  function closeDetail() {
+    document.getElementById("detail").hidden = true;
+    document.getElementById("chart").innerHTML = "";
+    document.body.style.overflow = "";
+    detailSymbol = null;
+  }
+
+  // ===== 事件 =====
+  document.getElementById("viewList").onclick = () => setView("list");
+  document.getElementById("viewGrid").onclick = () => setView("grid");
+  document.getElementById("backBtn").onclick = closeDetail;
+  document.getElementById("prevBtn").onclick = () => step(-1);
+  document.getElementById("nextBtn").onclick = () => step(1);
+  document.addEventListener("keydown", e => {
+    if (!detailSymbol) return;
+    if (e.key === "Escape") closeDetail();
+    if (e.key === "ArrowUp") { e.preventDefault(); step(-1); }
+    if (e.key === "ArrowDown") { e.preventDefault(); step(1); }
+  });
+
+  document.getElementById("manageBtn").onclick = e => {
+    const panel = document.getElementById("manage");
+    panel.hidden = !panel.hidden;
+    e.currentTarget.setAttribute("aria-expanded", String(!panel.hidden));
+    if (!panel.hidden) document.getElementById("symInput").focus();
+  };
+
+  document.getElementById("addForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const symInput = document.getElementById("symInput");
+    const symbol = symInput.value.trim().toUpperCase().replace(/\s+/g, "");
+    if (!symbol) return;
+    const grp = document.getElementById("groupInput").value.trim() || DEFAULT_GROUP;
+    if (list.some(i => i.symbol === symbol && i.group === grp)) { alert(`${symbol} 已經在「${grp}」裡了。`); return; }
+    list.push({
+      symbol,
+      name: document.getElementById("nameInput").value.trim(),
+      group: grp
+    });
+    symInput.value = "";
+    document.getElementById("nameInput").value = "";
+    commit();
+    symInput.focus();
+  });
+
+  document.getElementById("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify(list, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "watchlist.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
+  document.getElementById("importFile").addEventListener("change", async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data) || !data.every(i => i && typeof i.symbol === "string")) throw new Error();
+      list = data.map(i => ({ symbol: i.symbol.toUpperCase(), name: i.name || "", group: i.group || DEFAULT_GROUP }));
+      commit();
+    } catch (err) {
+      alert('這個檔案不是有效的清單。格式應為 [{"symbol":"NASDAQ:AAPL","name":"Apple","group":"美股"}]');
+    }
+    e.target.value = "";
+  });
+  document.getElementById("resetBtn").onclick = () => {
+    if (!confirm("要把清單還原成預設內容嗎？")) return;
+    list = DEFAULT_LIST.map(i => ({ ...i }));
+    commit();
+  };
+
+  buildSeg("rangePick", RANGES, prefs.range, v => {
+    prefs.range = v; saveJSON(PREF_KEY, prefs); renderGrid();
+  });
+  buildSeg("colPick", [[2,"2"],[3,"3"],[4,"4"]], prefs.cols, v => {
+    prefs.cols = v; saveJSON(PREF_KEY, prefs);
+    document.getElementById("grid").style.setProperty("--cols", v);
+  });
+
+  renderManage();
+  renderSummary();
+  setView(prefs.view);
+</script>
+</body>
+</html>
